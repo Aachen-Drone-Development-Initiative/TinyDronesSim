@@ -34,22 +34,16 @@ function TinyDronesSim.get_inertia_matrix(thruster::Thruster, center_of_mass::Ve
 end
 
 @kwdef mutable struct Drone <: SimObject
-    thruster1::Thruster = Thruster(m=0.1, x=Vec3f(-0.05, +0.05, 0), omega=300) # about 1000 rpm
-    thruster2::Thruster = Thruster(m=0.1, x=Vec3f(-0.05, -0.05, 0), omega=300)
-    thruster3::Thruster = Thruster(m=0.1, x=Vec3f(+0.05, -0.05, 0), omega=305)
-    thruster4::Thruster = Thruster(m=0.1, x=Vec3f(+0.05, +0.05, 0), omega=304)
+    thruster1::Thruster = Thruster(m=0.1, x=Vec3f(-0.05, +0.05, 0), omega=105) # about 1000 rpm
+    thruster2::Thruster = Thruster(m=0.1, x=Vec3f(-0.05, -0.05, 0), omega=105)
+    thruster3::Thruster = Thruster(m=0.1, x=Vec3f(+0.05, -0.05, 0), omega=107)
+    thruster4::Thruster = Thruster(m=0.1, x=Vec3f(+0.05, +0.05, 0), omega=109)
     mech_point::MechanicalPoint = MechanicalPoint(m=0.3, x=Vec3f(0, 0, 0))
     
     x::Vec3f = Vec3f(0, 0, 0)              # position
     u::Vec3f = Vec3f(0, 0, 0)              # velocity
     r::Quaternion = identity_quaternion()  # orientation
     angular_u::Vec3f = Vec3f(0, 0, 0)      # angular velocity vector [radians / s]
-end
-
-function get_inertia_matrix(obj::ObjT) where {ObjT <: SimObject}
-    return Mat33f([0.01 0    0;
-                   0    0.01 0;
-                   0    0    0.01])
 end
 
 TinyDronesSim.has_pos(::Drone) = true
@@ -65,7 +59,7 @@ function TinyDronesSim.render(ctxid::RenderContextID, drone::Drone)::Nothing
     render(ctxid, get_relative_pos(drone, drone.mech_point))
 end
 
-include("TinyDronesImpl.jl") # this is stupid but very important, will find an alternative hopefully
+include("../src/TinyDronesImpl.jl") # this is stupid but very important, will find an alternative hopefully
 
 # Testing
 
@@ -76,7 +70,7 @@ ctxid::RenderContextID = init_renderer(RenderConfig())
 while !renderer_should_close(ctxid)
     begin_3d_rendering(ctxid)
 
-    for i in 1:10
+    for i in 1:100
         integrate_physics_euler!(drone, 0.000167)
     end
     # println(get_pos(drone))

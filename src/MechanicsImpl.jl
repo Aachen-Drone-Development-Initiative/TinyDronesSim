@@ -211,11 +211,19 @@ end
 ## Time Integration ##
 
 function TinyDronesSim.integrate_physics_euler!(obj::ObjT, dt::Float64) where {ObjT <: SimObject}
+    if (!has_pos(ObjT())
+        || !has_velocity(ObjT())
+        || !has_angular_velocity(ObjT())
+        || !has_orientation(ObjT()))
+        @error("Requires has_pos, has_velocity, has_angular_velocity, has_orientation")
+    end
+    
     resultant = get_mechanical_reaction_parent_frame(obj)
 
     # update velocity, position
     mass = get_total_mass(obj)
     u_dot = resultant.force / mass
+
     set_velocity!(obj, get_velocity(obj) + u_dot * dt)
     set_pos!(obj, get_pos(obj) + get_velocity(obj) * dt)
     

@@ -1,4 +1,4 @@
-## Overview
+## Overviewu
 The package consists of a set of functions which take as argument a subtype of `SimObject`.
 These subtypes can be arbitrarily defined, but in practice contain a mixture of predefined
 types like `MechanicalPoint` and user defined types (not subtypes of `SimObject`).  
