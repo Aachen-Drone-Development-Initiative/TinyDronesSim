@@ -6,7 +6,7 @@ This project aims to be a flexible software development foundation for tinyDrone
 ## Overview
 
 The 'main loop' of any TinyDronesSim-derived project is inside a Julia file/script.
-Here types, objects and functions/overloads can be defined to describe your project.
+Types, objects and functions/overloads can be defined here to describe your project.
 You can also call external code, for example with the convenient [C-interface](https://docs.julialang.org/en/v1/manual/calling-c-and-fortran-code/).
 TinyDronesSim essentially consists of a set of predefined generic or specific functions and types,
 which are supposed to simplify your job and provide some structure.
@@ -56,3 +56,9 @@ It essentially combines all resultants recursively downwards from `obj`, each ob
 overloads for their type for the functions `get_mechanical_reaction_local_frame_component(obj)` and/or
 `get_mechanical_reaction_parent_frame_component(obj)`, which each return a resultant in the respective frame of reference.
 The child objects will only be checked recursively, if both are not defined for an objects type.
+
+## TinyDronesRender
+
+### Build
+
+run `./build.bat` in `/TinyDronesRender`
