@@ -3,11 +3,13 @@ module TinyDronesSim
 
 using StaticArrays
 
-export SimObject
-abstract type SimObject end
+export Generic
+abstract type Generic end
 
-include("Utils.jl")
+include("BasicTypes.jl")
+include("QuaternionRotation.jl")
+include("Metahelpers.")
 include("Visualization.jl")
 include("Mechanics.jl")
 
-end # module TinyDronesSim b
+end # module TinyDronesSim

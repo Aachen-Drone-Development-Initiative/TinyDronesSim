@@ -21,6 +21,10 @@ struct RenderConfig {
     Color background_color;
 };
 
+struct Vec3f_32 {
+    float a[3];
+};
+
 extern "C" {
     RenderContextID init_renderer(RenderConfig cfg);
     bool renderer_should_close(RenderContextID ctxid);
@@ -28,15 +32,8 @@ extern "C" {
     void end_3d_rendering(RenderContextID ctxid);
     void close_renderer(RenderContextID ctxid);
 
-    void render_grid_floor(RenderContextID ctxid, int32_t n_fields, double field_spacing);
+    void render_grid_floor(RenderContextID ctxid, int n_fields, float field_spacing);
+    void render_sphere(RenderContextID ctxid, Vec3f_32 pos, float radius, Color color);
+    void render_path(RenderContextID ctxid, Vec3f_32* points, int n_points, Color color);
 }
-
-struct Sphere {
-    double x[3];
-    Color color;
-    double radius;
-};
-
-extern "C" void render_sphere(RenderContextID ctxid, Sphere sphere);
-
 

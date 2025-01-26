@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <iostream>
+#include <pthread.h>
 
 struct {
     RenderContext* arr[MAX_RENDER_CONTEXTS - 1];
@@ -86,13 +87,22 @@ void close_renderer(RenderContextID ctxid)
     CloseWindow();
 }
 
-void render_sphere(RenderContextID ctxid, Sphere sphere)
+// In raylib y is up and not z like in TinyDronesSim
+static Vector3 vec3f_32_to_Vector3(Vec3f_32 v) { return Vector3{v.a[0], v.a[2], v.a[1]}; }
+
+void render_sphere(RenderContextID ctxid, Vec3f_32 pos, float radius, Color color)
 {
-    // in raylib y is up (not z)
-    DrawSphere(Vector3{(float)sphere.x[0], (float)sphere.x[2], (float)sphere.x[1]}, (float)sphere.radius, sphere.color);
+    DrawSphere(vec3f_32_to_Vector3(pos), radius, color);
 }
 
-void render_grid_floor(RenderContextID ctxid, int32_t n_fields, double field_spacing)
+void render_grid_floor(RenderContextID ctxid, int n_fields, float field_spacing)
 {
     DrawGrid(n_fields, field_spacing);
+}
+
+void render_path(RenderContextID ctxid, Vec3f_32* points, int n_points, Color color)
+{
+    for (int i = 0; i < n_points - 1; ++i) {
+        DrawLine3D(vec3f_32_to_Vector3(points[i]), vec3f_32_to_Vector3(points[i + 1]), color);
+    }
 }

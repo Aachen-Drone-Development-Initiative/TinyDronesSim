@@ -1,16 +1,11 @@
+# This file contains anything which helps with metaprogramming,
+# most notably a set of functions for finding fields within a composite type (struct)
+# which have certain propeties (can be used as arguments for certain function calls,
+# for example get_mass(), which means the helper function finds all fields 'which have a mass')
 
-export Vec3f,
-    cross_product,
-    euclid_norm,
-    Mat33f,
-    zero_mat33f,
-    Quaternion,
-    combine,
-    rotate,
-    normed_axis_angle_to_quaternion,
+export @error_nonsensecall,
+    @has,
     FunctionCall,
-    # find_references_for_method,
-    # find_references_for_methods_multiargs_impl,
     find_fields_for_method,
     find_fields_for_methods,
     find_fields_for_method_multiargs,
@@ -22,63 +17,36 @@ export Vec3f,
     find_fields_for_methods_multiargs_v,
     find_fields_for_methods_multiargs_v_impl,
     field_set_to_field_expr,
-    find_fields_for_methods_v_t,
-    identity_quaternion
+    find_fields_for_methods_v_t
     
 
-const Vec3f = SVector{3, Float64}
-const Mat33f = SMatrix{3, 3, Float64}
+# error macro for generic functions for when they need to deny their provided arguments
+macro error_nonsensecall(obj, name)
+    return :(@error("calling $name on '$obj' of type $(typeof(obj)) doesn't make any sense."))
+end
 
-cross_product(a::Vec3f, b::Vec3f) = Vec3f(a.y * b.z - a.z * b.y, a.z * b.x - a.x * b.z, a.x * b.y - a.y * b.x)
+macro error_nonsensecall(obj, name, msg)
+    return :(@error("calling $name on '$obj' of type $(typeof(obj)) doesn't make any sense.\n $msg."))
+end
 
-zero_mat33f() = Mat33f([0 0 0; 0 0 0; 0 0 0])
-
-euclid_norm(a) = sqrt(a'a)
-norm_vector(a) = a ./ euclid_norm(a)
 
 tuplejoin(x) = x
 tuplejoin(x, y) = (x..., y...)
 tuplejoin(x, y, z...) = (x..., tuplejoin(y, z...)...)
 
-### Quaternions for rotation ###
-# based on: https://danceswithcode.net/engineeringnotes/quaternions/quaternions.html
-
-struct Quaternion
-    real::Float64
-    im::Vec3f
+# simplification for hasmethod(...)
+macro has(method, type)
+    return :(hasmethod($(esc(method)), ($(esc(type)),)))
 end
 
-identity_quaternion() = Quaternion(1, Vec3f(0, 0, 0))
-
-normed_axis_angle_to_quaternion(theta::Float64, v::Vec3f) = Quaternion(cos(theta * 0.5), v * sin(theta * 0.5))
-
-import Base.+
-(+)(q::Quaternion, r::Quaternion) = Quaternion(q.real + r.real, q.im + r.im)
-
-import Base.*
-(*)(q::Quaternion, r::Quaternion) = Quaternion(
-    q.real * r.real - q.im.x * r.im.x - q.im.y * r.im.y - q.im.z * r.im.z,
-    Vec3f(q.real * r.im.x + q.im.x * r.real - q.im.y * r.im.z + q.im.z * r.im.y,
-          q.real * r.im.y + q.im.x * r.im.z + q.im.y * r.real - q.im.z * r.im.x,
-          q.real * r.im.z - q.im.x * r.im.y + q.im.y * r.im.x + q.im.z * r.real))
-
-conjugate(q::Quaternion) = Quaternion(q.real, -q.im)
-
-function combine(q::Quaternion, r::Quaternion)::Quaternion
-    return r * q # https://math.stackexchange.com/questions/331539/combining-rotation-quaternions
+macro has(method, type, right_args_tuple)
+    return :(hasmethod($(esc(method)), tuplejoin(($(esc(type)),), $(esc(right_args_tuple)))))
 end
 
-function rotate(v::Vec3f, r::Quaternion)::Vec3f
-    q = r * Quaternion(0, v) * conjugate(r)
-    return q.im
+macro has(method, left_args_tuple, type, right_args_tuple)
+    return :(hasmethod($(esc(method)), tuplejoin($(esc(left_args_tuple)), ($(esc(type)),), $(esc(right_args_tuple)))))
 end
 
-function inv_rotate(v::Vec3f, r::Quaternion)::Vec3f
-    q = Quaternion(0, v)
-    return conjugate(r) * q * r
-end
-
-### Metaprogramming helpers ###
 
 struct FunctionCall
     method::Function
@@ -148,31 +116,33 @@ it returns [(a, typeof(a)), (b, typeof(b)), (c, typeof(c))]
 find_fields_for_methods_v_t(type::Type, methods::Vector{Function}) = find_fields_for_methods_multiargs_v_t_impl(type, methods, false)
 
 function find_fields_for_methods_multiargs_v_t_impl(type::Type, function_calls::Vector, has_multiargs::Bool)::Vector{Vector{Tuple{Symbol, DataType}}}
-    fields = fieldnames(type)
-    field_types = fieldtypes(type)
-    @assert(length(fields) == length(field_types))
     typed_field_sets = Vector{Vector{Tuple{Symbol, DataType}}}()
-    n_fields = length(fields)
-    if n_fields != 0
-        for i in 1:n_fields
-            has_methods = true
-            for function_call in function_calls
-                if has_multiargs
-                    has_methods = has_methods && hasmethod(function_call.method, tuplejoin(function_call.left_args, (field_types[i],), function_call.right_args))
-                else
-                    has_methods = has_methods && hasmethod(function_call, (field_types[i],))
+    try
+        fields = fieldnames(type)
+        field_types = fieldtypes(type)
+        @assert(length(fields) == length(field_types))
+        n_fields = length(fields)
+        if n_fields != 0
+            for i in 1:n_fields
+                has_methods = true
+                for function_call in function_calls
+                    if has_multiargs
+                        has_methods = has_methods && hasmethod(function_call.method, tuplejoin(function_call.left_args, (field_types[i],), function_call.right_args))
+                    else
+                        has_methods = has_methods && hasmethod(function_call, (field_types[i],))
+                    end
                 end
-            end
-            if has_methods
-                push!(typed_field_sets, [(Symbol(fields[i]), field_types[i])])
-            else
-                sub_typed_field_sets = find_fields_for_methods_multiargs_v_t_impl(field_types[i], function_calls, has_multiargs)
-                for sub_field_set in sub_typed_field_sets
-                    insert!(sub_field_set, 1, (Symbol(fields[i]), field_types[i]))
-                    push!(typed_field_sets, sub_field_set)
+                if has_methods
+                    push!(typed_field_sets, [(Symbol(fields[i]), field_types[i])])
+                else
+                    sub_typed_field_sets = find_fields_for_methods_multiargs_v_t_impl(field_types[i], function_calls, has_multiargs)
+                    for sub_field_set in sub_typed_field_sets
+                        insert!(sub_field_set, 1, (Symbol(fields[i]), field_types[i]))
+                        push!(typed_field_sets, sub_field_set)
+                    end
                 end
             end
         end
-    end
+    catch end
     return typed_field_sets
 end
