@@ -5,6 +5,7 @@ export Quaternion,
     combine,
     rotate,
     normed_axis_angle_to_quaternion,
+    axis_angle_to_quaternion,
     identity_quaternion
 
 struct Quaternion
@@ -16,6 +17,15 @@ identity_quaternion() = Quaternion(1, Vec3f(0, 0, 0))
 
 # convert axis angles (which need to be normed first) to a quaternion
 normed_axis_angle_to_quaternion(theta::Float64, v::Vec3f) = Quaternion(cos(theta * 0.5), v * sin(theta * 0.5))
+
+# the magnitude of the vector is theta, returns the identity quaternion if theta is smaller than epsilon
+function axis_angle_to_quaternion(v::Vec3f, epsilon::Float64)
+    theta = euclid_norm(v)
+    if theta > epsilon
+        return Quaternion(cos(theta * 0.5), (v ./ theta) * sin(theta * 0.5))
+    end
+    return identity_quaternion()
+end
 
 import Base.+
 (+)(q::Quaternion, r::Quaternion) = Quaternion(q.real + r.real, q.im + r.im)

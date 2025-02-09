@@ -1,3 +1,4 @@
+const tds = TinyDronesSim
 
 export get_pos,
     get_mass,
@@ -9,30 +10,23 @@ export get_pos,
     set_orientation!,
     set_velocity!,
     set_angular_velocity!,
-    
-    get_relative_pos,
-    get_total_mass,
-    get_expr_center_of_mass,
-    get_center_of_mass,
-    get_center_of_mass_local_frame,
+
     get_inertia_matrix,
-    get_inertia_matrix_point_mass,
-    
-    get_mechanical_reaction_parent_frame,
-    get_mechanical_reaction_local_frame_component,
-    get_mechanical_reaction_parent_frame_component,
-    get_gravity_reaction_parent_frame_component,
+    get_mechanical_reaction,
 
+    gravitational_acceleration,
+
+    Resultant3D,
+    combine_resultants,
+    rotate_resultant,
+
+    relative_to_absolute_pos,
     integrate_physics_euler!
-
-include("MechanicsTypes.jl")
 
 ### Mechanics Interface ###
 
-# define these functions for your '<: Generic' object to make it compatible with
-# the mechanics implementation of TinyDronesSim
-# 1) Not all functions need to be defined
-# 2) You can also overwrite all generic functions listed below this section
+# Define these functions for your custom types to make them compatible with the functionality provided here.
+# Not all functions need to be defined, errors will tell you if there is missing something.
 
 function get_pos(obj::Nothing)::Vec3f end
 function get_mass(obj::Nothing)::Float64 end
@@ -46,28 +40,63 @@ function set_velocity!(obj::Nothing, u::Vec3f) end
 function set_orientation!(obj::Nothing, r::Quaternion) end
 function set_angular_velocity!(obj::Nothing, angular_u::Vec3f) end
 
-function get_mechanical_reaction_local_frame_component(obj::Nothing)::Resultant3D end
-function get_mechanical_reaction_parent_frame_component(obj::Nothing)::Resultant3D end
+function get_inertia_matrix(obj::Nothing) end
+function get_mechanical_reaction(obj::Nothing) end
 
-### Generic Mechanics Functions ###
+### Mechanics Constants ###
 
-@generated function get_relative_pos(obj_list...) end
-@generated function get_total_mass(obj::ObjT) where {ObjT <: Generic} end
+const gravitational_acceleration = 9.81 # [m/s^2]
 
-function get_expr_center_of_mass(obj_name::Symbol, obj_type::Type)::Expr end
-@generated function get_center_of_mass(obj::ObjT) where {ObjT <: Generic} end
-@generated function get_center_of_mass_local_frame(obj::ObjT) where {ObjT <: Generic} end
+### Mechanics Types ###
 
-@generated function get_inertia_matrix(obj::ObjT) where {ObjT <: Generic} end
-function get_inertia_matrix_point_mass(obj::ObjT, center_of_mass::Vec3f)::Mat33f where {ObjT <: Generic} end
+@kwdef mutable struct Resultant3D
+    force::Vec3f = Vec3f(0, 0, 0)
+    torque::Vec3f = Vec3f(0, 0, 0)
+    pos::Vec3f = Vec3f(0, 0, 0)
+end
 
-## Mechanical Reaction ##
+tds.set_pos!(resultant::Resultant3D, pos::Vec3f) = resultant.pos = pos
 
-# returns the mechanical reaction in the reference frame of objects on the same hierarchy level.
-@generated function get_mechanical_reaction_parent_frame(obj::ObjT) where {ObjT <: Generic} end
+function combine_resultants(pos::Vec3f, resultants::Resultant3D...)::Resultant3D
+    resultant = Resultant3D(pos=pos)
+    for i in 1:length(resultants)
+        distance = euclid_norm(resultants[i].pos)
+        resultant.force += resultants[i].force
+        resultant.torque += resultants[i].torque + cross_product(resultants[i].pos - pos, resultants[i].force)
+    end
+    return resultant
+end
 
-function get_gravity_reaction_parent_frame_component(obj::ObjT)::Resultant3D where {ObjT <: Generic} end
+function rotate_resultant(resultant::Resultant3D, rotation::Quaternion)::Resultant3D
+    return Resultant3D(rotate(resultant.force, rotation),
+                       rotate(resultant.torque, rotation),
+                       resultant.pos)
+end
 
-## Time Integration ##
+### Mechanics Functionality ###
 
-function integrate_physics_euler!(obj::ObjT, dt::Float64) where {ObjT <: Generic} end
+function relative_to_absolute_pos(obj, relative_pos::Vec3f)
+    return get_pos(obj) + rotate(relative_pos, get_orientation(obj))
+end
+
+# Update the position and orientation of an object, based on its 'mechanical reaction'
+# using the simple euler integration method (https://en.wikipedia.org/wiki/Euler_method)
+function integrate_physics_euler!(obj, dt::Float64, epsilon::Float64)
+    resultant = get_mechanical_reaction(obj)
+
+    # update velocity, position
+    mass = get_mass(obj)
+    u_dot = resultant.force / mass
+
+    set_velocity!(obj, get_velocity(obj) + u_dot * dt)
+    set_pos!(obj, get_pos(obj) + get_velocity(obj) * dt)
+    
+    # update angular_velocity, orientation
+    I = get_inertia_matrix(obj)
+    angular_u = get_angular_velocity(obj)
+    angular_u_dot = inv(I) * (resultant.torque - cross_product(angular_u, I * angular_u))
+    set_angular_velocity!(obj, angular_u + angular_u_dot * dt)
+    
+    orientation_delta = get_angular_velocity(obj) * dt
+    set_orientation!(obj, combine(get_orientation(obj), axis_angle_to_quaternion(orientation_delta, epsilon)))
+end
