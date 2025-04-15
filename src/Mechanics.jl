@@ -1,4 +1,4 @@
-const tds = TinyDronesSim
+const TDS = TinyDronesSim
 
 export get_pos,
     get_mass,
@@ -9,36 +9,36 @@ export get_pos,
     set_mass!,
     set_orientation!,
     set_velocity!,
-    set_angular_velocity!,
+    set_angular_velocity!
 
-    get_inertia_matrix,
-    get_mechanical_reaction,
+export get_inertia_matrix,
+    get_mechanical_reaction
 
-    gravitational_acceleration,
+export gravitational_acceleration
 
-    Resultant3D,
+export Resultant3D,
     combine_resultants,
-    rotate_resultant,
+    rotate_resultant
 
-    relative_to_absolute_pos,
+export relative_to_absolute_pos,
     integrate_physics_euler!
 
 ### Mechanics Interface ###
 
-# Define these functions for your custom types to make them compatible with the functionality provided here.
-# Not all functions need to be defined, errors will tell you if there is missing something.
+# Define these functions for your types to make them compatible with the functionality provided in Mechanics.jl.
+# Not all functions need to be defined, errors will tell you if something is missing.
 
-function get_pos(obj::Nothing)::Vec3f end
+function get_pos(obj::Nothing)::Float64_3 end
 function get_mass(obj::Nothing)::Float64 end
-function get_velocity(obj::Nothing)::Vec3f end
+function get_velocity(obj::Nothing)::Float64_3 end
 function get_orientation(obj::Nothing)::Quaternion end
-function get_angular_velocity(obj::Nothing)::Vec3f end
+function get_angular_velocity(obj::Nothing)::Float64_3 end
 
-function set_pos!(obj::Nothing, x::Vec3f) end
+function set_pos!(obj::Nothing, x::Float64_3) end
 function set_mass!(obj::Nothing, m::Float64) end
-function set_velocity!(obj::Nothing, u::Vec3f) end
+function set_velocity!(obj::Nothing, u::Float64_3) end
 function set_orientation!(obj::Nothing, r::Quaternion) end
-function set_angular_velocity!(obj::Nothing, angular_u::Vec3f) end
+function set_angular_velocity!(obj::Nothing, angular_u::Float64_3) end
 
 function get_inertia_matrix(obj::Nothing) end
 function get_mechanical_reaction(obj::Nothing) end
@@ -49,18 +49,19 @@ const gravitational_acceleration = 9.81 # [m/s^2]
 
 ### Mechanics Types ###
 
+# A 'resultant' is a 'force' and a 'torque' acting at a 'pos'
 @kwdef mutable struct Resultant3D
-    force::Vec3f = Vec3f(0, 0, 0)
-    torque::Vec3f = Vec3f(0, 0, 0)
-    pos::Vec3f = Vec3f(0, 0, 0)
+    force::Float64_3 = Float64_3(0, 0, 0)
+    torque::Float64_3 = Float64_3(0, 0, 0)
+    pos::Float64_3 = Float64_3(0, 0, 0)
 end
 
-tds.set_pos!(resultant::Resultant3D, pos::Vec3f) = resultant.pos = pos
+TDS.set_pos!(resultant::Resultant3D, pos::Float64_3) = resultant.pos = pos
 
-function combine_resultants(pos::Vec3f, resultants::Resultant3D...)::Resultant3D
+# Combine resutants and move them to 'pos'
+function combine_resultants(pos::Float64_3, resultants::Resultant3D...)::Resultant3D
     resultant = Resultant3D(pos=pos)
     for i in 1:length(resultants)
-        distance = euclid_norm(resultants[i].pos)
         resultant.force += resultants[i].force
         resultant.torque += resultants[i].torque + cross_product(resultants[i].pos - pos, resultants[i].force)
     end
@@ -68,15 +69,16 @@ function combine_resultants(pos::Vec3f, resultants::Resultant3D...)::Resultant3D
 end
 
 function rotate_resultant(resultant::Resultant3D, rotation::Quaternion)::Resultant3D
-    return Resultant3D(rotate(resultant.force, rotation),
-                       rotate(resultant.torque, rotation),
+    return Resultant3D(rotate_vector(resultant.force, rotation),
+                       rotate_vector(resultant.torque, rotation),
                        resultant.pos)
 end
 
 ### Mechanics Functionality ###
 
-function relative_to_absolute_pos(obj, relative_pos::Vec3f)
-    return get_pos(obj) + rotate(relative_pos, get_orientation(obj))
+# Transform a position vector which is relative to 'obj', to the same coordinate-space 'obj' is relative to.
+function relative_to_absolute_pos(obj, relative_pos::Float64_3)
+    return get_pos(obj) + rotate_vector(relative_pos, get_orientation(obj))
 end
 
 # Update the position and orientation of an object, based on its 'mechanical reaction'
@@ -98,5 +100,6 @@ function integrate_physics_euler!(obj, dt::Float64, epsilon::Float64)
     set_angular_velocity!(obj, angular_u + angular_u_dot * dt)
     
     orientation_delta = get_angular_velocity(obj) * dt
+    # combine(x, y ) was flipped without testing !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     set_orientation!(obj, combine(get_orientation(obj), axis_angle_to_quaternion(orientation_delta, epsilon)))
 end

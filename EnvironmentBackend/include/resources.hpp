@@ -1,0 +1,11 @@
+#pragma once
+
+#include <stdint.h>
+
+extern "C" {
+    extern const uint8_t RESOURCES_PACKAGE[];
+    extern int RESOURCES_MATERIAL_DEFAULT_OFFSET;
+    extern int RESOURCES_MATERIAL_DEFAULT_SIZE;
+}
+
+#define RESOURCES_MATERIAL_DEFAULT_DATA (RESOURCES_PACKAGE + RESOURCES_MATERIAL_DEFAULT_OFFSET)

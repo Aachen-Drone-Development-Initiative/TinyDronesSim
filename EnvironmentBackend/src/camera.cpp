@@ -1,0 +1,110 @@
+#include "../environments.h"
+#include <camera.hpp>
+
+#include <environment.hpp>
+#include <object_manager.hpp>
+#include <logging.hpp>
+#include <math.hpp>
+
+#include <filament/Engine.h>
+#include <filament/Camera.h>
+#include <filament/View.h>
+#include <filament/Viewport.h>
+#include <utils/EntityManager.h>
+
+#include <SDL.h>
+
+namespace futils = utils;
+
+UUID create_camera(UUID env_id, double3 pos, double3 lookat, double3 up, double vertical_fov, double near_plane, double far_plane, uint32_t width, uint32_t height)
+{
+    Environment* env = state.get_as_environment(env_id);
+    if (!env) return ENV_INVALID_UUID;
+
+    Camera* camera = new Camera;
+    camera->env = env;
+    futils::EntityManager& entity_m = futils::EntityManager::get();
+    camera->camera_fentity = entity_m.create();
+    camera->fcamera = env->engine->createCamera(camera->camera_fentity);
+    camera->up = up;
+    camera->fcamera->lookAt(d3_to_fd3(pos), d3_to_fd3(lookat), d3_to_fd3(up));
+    camera->vertical_fov = vertical_fov;
+    camera->fcamera->setProjection(vertical_fov,
+                                   double(width) / double(height),
+                                   near_plane, far_plane,
+                                   fmt::Camera::Fov::VERTICAL);
+    
+    camera->view = env->engine->createView();
+    camera->view->setCamera(camera->fcamera);
+    assert(env->scene != nullptr);
+    camera->view->setScene(env->scene);
+    camera->view->setViewport({0, 0, width, height});
+
+    camera->renderer = env->engine->createRenderer();
+
+    return state.add_object({camera}).id;
+}
+
+Camera::~Camera()
+{
+    fmt::Engine* engine = env->engine;
+    engine->destroy(camera_fentity);
+    engine->destroy(view);
+    engine->destroy(renderer);
+}
+
+// Environment* get_camera_environment(Camera* camera) { return camera->env; }
+uint32_t __get_camera_image_width(Camera* camera) { return camera->view->getViewport().width; }
+uint32_t __get_camera_image_height(Camera* camera) { return camera->view->getViewport().height; }
+
+bool set_camera_fov_vertical(UUID camera_id, double vertical_fov)
+{
+    Camera* camera = state.get_as_camera(camera_id);
+    if (!camera) return false;
+    
+    camera->vertical_fov = vertical_fov;
+    camera->fcamera->setProjection(vertical_fov, double(camera->view->getViewport().width) / double(camera->view->getViewport().height),
+                                   camera->fcamera->getNear(),
+                                   camera->fcamera->getCullingFar(),
+                                   fmt::Camera::Fov::VERTICAL);
+    return true;
+}
+
+double get_camera_fov_vertical(UUID camera_id)
+{
+    Camera* camera = state.get_as_camera(camera_id);
+    if (!camera) return 0;
+    return camera->vertical_fov;
+}
+
+double3 get_camera_up_vector(UUID camera_id)
+{
+    Camera* camera = state.get_as_camera(camera_id);
+    if (!camera) return double3{};
+    return camera->up;
+}
+
+double3 get_camera_forward_vector(UUID camera_id)
+{
+    Camera* camera = state.get_as_camera(camera_id);
+    if (!camera) return double3{};
+    return fd3_to_d3(camera->fcamera->getForwardVector());
+}
+
+void __set_camera_image_size(Camera* camera, int width, int height)
+{
+    camera->view->setViewport({0, 0, uint32_t(width), uint32_t(height)});
+    float fov = camera->fcamera->getFieldOfViewInDegrees(fmt::Camera::Fov::VERTICAL);
+    camera->fcamera->setProjection(fov, double(width) / double(height),
+                                   camera->fcamera->getNear(),
+                                   camera->fcamera->getCullingFar(),
+                                   fmt::Camera::Fov::VERTICAL);
+}
+
+double __update_image_time(Camera* camera)
+{
+    static double sdl_ticks_per_ms = double(SDL_GetPerformanceFrequency()) * 10e-3;
+    double prev_time = camera->image_time_ms;
+    camera->image_time_ms = double(SDL_GetPerformanceCounter()) / sdl_ticks_per_ms;
+    return prev_time;
+}
