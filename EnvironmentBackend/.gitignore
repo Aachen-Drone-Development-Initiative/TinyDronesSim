@@ -1,0 +1,7 @@
+nob
+nob_config.h
+build/bin
+build/obj
+filament/lib/
+filament/bin/
+compile_flags.txt
