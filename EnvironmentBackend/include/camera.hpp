@@ -28,7 +28,7 @@ struct Camera {
     double vertical_fov;
 };
 
-double __update_image_time(Camera* camera);
-void __set_camera_image_size(Camera* camera, int width, int height);
-uint32_t __get_camera_image_width(Camera* camera);
-uint32_t __get_camera_image_height(Camera* camera);
+double update_image_time(Camera* camera);
+void set_camera_image_size(Camera* camera, int width, int height);
+uint32_t get_camera_image_width(Camera* camera);
+uint32_t get_camera_image_height(Camera* camera);

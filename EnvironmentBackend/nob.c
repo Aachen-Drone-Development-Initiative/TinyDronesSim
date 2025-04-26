@@ -285,29 +285,28 @@ bool clean_build(Cmd *cmd)
     return cmd_run_sync_and_reset(cmd);
 }
 
+void handle_execution_from_different_directory(int argc, char** argv, Cmd* cmd)
+{
+    // If we are called from another directory, the first argument 'argv[0]' would be for example
+    // something like '../../nob'. In that case we enter that directory '../..' and change 'argv[0]' to "./nob"
+    int i = strlen(argv[0]) - 1;
+    while (*(argv[0] + i) != '/' && i >= 0) --i;
+    if (i != 0) {
+        char* relative_path = malloc(sizeof(char) * (i + 1)); // leaked
+        strncpy(relative_path, argv[0], i + 1);
+        enter_folder(relative_path);
+    }
+    String_Builder new_argv0 = {0}; // leaked
+    sb_append_cstr(&new_argv0, "./");
+    sb_append_cstr(&new_argv0, argv[0] + i + 1);
+    argv[0] = new_argv0.items;
+}
+
 int main(int argc, char **argv)
 {
     Cmd cmd = {0};
 
-    // If we are called from another directory, the first argument 'argv[0]' would be for example
-    // something like '../../nob'. In that case we just restart nob the directoy it's inside of,
-    // because we are working with relative directories.
-    if (strcmp(argv[0], "./nob") != 0) {
-        int i = strlen(argv[0]) - 1;
-        while (*(argv[0] + i) != '/' && i >= 0) --i;
-        if (i != 0) {
-            char* relative_path = malloc(sizeof(char) * (i + 1));
-            strncpy(relative_path, argv[0], i + 1);
-            enter_folder(relative_path);
-        }
-        cmd_append(&cmd, "./nob");
-        for (int i = 1; i < argc; ++i) {
-            // reappend all additional arguments
-            cmd_append(&cmd, argv[i]);
-        }
-        nob_cmd_run_sync(cmd); 
-        return 0;
-    }
+    handle_execution_from_different_directory(argc, argv, &cmd);
 
     // Nob can detect, if the build script nob.c or nob_config.h have been changed and rebuilds nob automatically.
     NOB_GO_REBUILD_URSELF_PLUS(argc, argv, "nob_config.h");

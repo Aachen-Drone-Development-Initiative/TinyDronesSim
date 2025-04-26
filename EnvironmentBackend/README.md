@@ -24,15 +24,15 @@ This is the backend of `Environment.jl`, which builds on [Google-Filament](https
    5. Run Ninja: `ninja`
    
 2. Copy all the libraries from the `filament/out/cmake-release` folder to the `EnvironmentBackend/filament/lib` folder.
-   1. Create the `lib` folder in `EnvironmentBackend/filament`.
+   1. Create the `filament` and `filament/lib` folders inside `EnvironmentBackend/`.
    2. Now return to your `filament` directory and scrape all the libraries you just compiled:  
       `for file in $(find . -name "*.a"); do cp "$file" <path-to-the-lib-folder>; done`
-   Most of these libraries are not used, you can inspect which ones are actually required inside nob.c and remove the rest.
+   Most of these libraries are not used, you can inspect which ones are actually required inside `nob.c` and remove the rest.
 
 ### Building on Linux
 
 We are using the experimental build system [nob.h](https://github.com/tsoding/nob.h).  
 
-1. Create a new C-header file `nob_config.h` inside `EnvironmentBackend/` and add the line `define FILAMENT_PATH /your/path/to/filament/` to specify your filament directory **you need to add a trailing '/'**. This file is 'gitignored'.
-1. Compile `nob.c` with your favorite C-compiler. For example `cc nob.c -o nob`
-2. Run `./nob` (assuming you are in the directory of this README)
+1. Create the new C-header file `nob_config.h` inside `EnvironmentBackend/` and add the line `#define FILAMENT_PATH "/your/path/to/filament/"` to specify your filament directory **you need to add a trailing '/'**. This file is 'gitignored'.
+1. Compile `nob.c` with your favorite C-compiler. `cc nob.c -o nob` should work on Linux.
+2. Run `./nob` (can be executed from any directory)

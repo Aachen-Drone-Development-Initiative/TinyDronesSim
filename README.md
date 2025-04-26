@@ -19,7 +19,8 @@ TinyDronesSim is a tool for simulating the *tinydrone*.
 - [x] change material parameter to material name of previously added material instead of settings fro new material
 - [x] Better internal managing of objects (destroy all option + hash-stored id instead of pointer)
 - [x] Replace *_Settings structs with function arguments
-- [] implement 
+- [x] reimplement activating things like environment and window (to avoid stupid UUID conversion)
+- [] add controller input support
 - [] implement Mesh constructor
 
 

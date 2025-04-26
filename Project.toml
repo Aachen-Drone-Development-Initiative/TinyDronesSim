@@ -5,14 +5,10 @@ version = "0.1.0"
 
 [deps]
 BenchmarkTools = "6e4b80f9-dd63-53aa-95a3-0cdb28fa8baf"
-GeometryBasics = "5c1252a2-5f33-56bf-86c9-59e7332b4326"
-InteractiveUtils = "b77e0a4c-d291-57a0-90e8-8db25a27a240"
 StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
 StaticStrings = "4db0a0c5-418a-4e1d-8806-cb305fe13294"
 
 [compat]
 BenchmarkTools = "1.5.0"
-GeometryBasics = "0.5.5"
-InteractiveUtils = "1.11.0"
 StaticArrays = "1.9.9"
 StaticStrings = "0.2.6"

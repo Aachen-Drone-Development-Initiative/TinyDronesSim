@@ -1,5 +1,6 @@
 using TinyDronesSim
 using StaticStrings
+using StaticArrays
 
 const libenv = "EnvironmentBackend/build/lib/libenvironment.so"
 
@@ -7,15 +8,13 @@ export UUID
 
 const UUID = UInt64
 
-function add_renderables(env_id::UUID, obj::Nothing)::Nothing end
-function update_renderables(obj::Nothing)::Nothing end
-
 #
 # State Handling
 #
 
 destroy(obj_id::UUID)::Bool = @ccall libenv.destroy(obj_id::UUID)::UInt8
 destroy_everything()::Bool = @ccall libenv.destroy_everything()::UInt8
+exists(obj_id::UUID)::Bool = @ccall libenv.exists(obj_id::UUID)::UInt8
 
 #
 # Environment Handling
@@ -25,25 +24,27 @@ destroy_everything()::Bool = @ccall libenv.destroy_everything()::UInt8
 
 create_environment()::UUID = @ccall libenv.create_environment()::UUID
 
+"Change the 'active environment' to different environment."
+set_active_environment(env_id::UUID)::Bool = @ccall libenv.set_active_environment(env_id::UUID)::UInt8
+
 #
 # Adding an Image Based Lighting skybox to the scene.
 # Most image formats are supported, though you should use HDR images.
 #
-function add_ibl_skybox(env_id::UUID, file_path::CStaticString{N})::Bool where N
-    @ccall libenv.add_ibl_skybox(env_id::UUID, file_path::Cstring)::UInt8
+function add_ibl_skybox(file_path::CStaticString{N})::Bool where N
+    @ccall libenv.add_ibl_skybox(file_path::Cstring)::UInt8
 end
 
-function add_lit_material(env_id::UUID, material_name::CStaticString{N} = cstatic"DefaultMaterial";
-                          base_color::Float64_3 = Float64_3(1.0, 1.0, 1.0),
-                          roughness::Float64 = 0.0,
-                          metallic::Float64 = 0.0,
-                          reflectance::Float64 = 0.0,
-                          sheen_color::Float64 = 0.0,
-                          clear_coat::Float64 = 0.0,
-                          clear_coat_roughness::Float64 = 0.0)::Bool where N
+function add_lit_material(material_name::CStaticString{N} = cstatic"DefaultMaterial";
+                          base_color = Float64_3(1.0, 1.0, 1.0),
+                          roughness = 0.0,
+                          metallic = 0.0,
+                          reflectance = 0.0,
+                          sheen_color = 0.0,
+                          clear_coat = 0.0,
+                          clear_coat_roughness = 0.0)::Bool where N
     
-    @ccall libenv.add_lit_material(env_id::UUID,
-                                   material_name::Cstring,
+    @ccall libenv.add_lit_material(material_name::Cstring,
                                    base_color::Float32_3,
                                    roughness::Float32,
                                    metallic::Float32,
@@ -53,37 +54,36 @@ function add_lit_material(env_id::UUID, material_name::CStaticString{N} = cstati
                                    clear_coat_roughness::Float32)::UInt8
 end
 
-function add_unlit_material(env_id::UUID, material_name::CStaticString{N} = cstatic"DefaultMaterial";
-                            base_color::Float64_3 = Float64_3(1.0, 1.0, 1.0),
-                            emmisive::Float64_4 = Float64_4(0.0, 0.0, 0.0, 0.0))::Bool where N
+function add_unlit_material(material_name::CStaticString{N} = cstatic"DefaultMaterial";
+                            base_color = Float64_3(1.0, 1.0, 1.0),
+                            emmisive = Float64_4(0.0, 0.0, 0.0, 0.0))::Bool where N
 
-    @ccall libenv.add_unlit_material(env_id::UUID,
-                                     material_name::Cstring,
+    @ccall libenv.add_unlit_material(material_name::Cstring,
                                      base_color::Float32_3,
                                      emmisive::Float32_4)::UInt8
 end
 
 # Importing .gltf or .glb files.
 # gltf animations are not played automatically!
-function add_gltf_asset_and_create_instance(env_id::UUID, filepath::CStaticString{N})::UUID where N
-    @ccall libenv.add_gltf_asset_and_create_instance(env_id::UUID, filepath::Cstring)::UUID
+function add_gltf_asset_and_create_instance(filepath::CStaticString{N})::UUID where N
+    @ccall libenv.add_gltf_asset_and_create_instance(filepath::Cstring)::UUID
 end
 
 # Create another instance using the parent gltf asset from this instance.
 create_gltf_instance_sibling(gltf_instance_id::UUID)::UUID = @ccall libenv.create_gltf_instance_sibling(gltf_instance_id::UUID)::UUID
 
 # Importing .filamesh mesh files.
-function add_filamesh_from_file(env_id::UUID, path::CStaticString{N})::UUID where N
-    @ccall libenv.add_filamesh_from_file(env_id::UUID, path::Cstring)::UUID
+function add_filamesh_from_file(path::CStaticString{N})::UUID where N
+    @ccall libenv.add_filamesh_from_file(path::Cstring)::UUID
 end
 
 # Adding basic objects.
-function add_plane(env_id::UUID, center::Float64_3, length_x::Float64, length_z::Float64, material_name::CStaticString{N}, rotation::Quaternion = identity_quaternion())::UUID where N
-    @ccall libenv.add_plane(env_id::UUID, center::Float64_3, length_x::Float64, length_z::Float64, material_name::Cstring, rotation::Quaternion)::UUID
+function add_plane(center, length_x, length_z, material_name::CStaticString{N}, rotation::Quaternion = identity_quaternion())::UUID where N
+    @ccall libenv.add_plane(center::Float64_3, length_x::Float64, length_z::Float64, material_name::Cstring, rotation::Quaternion)::UUID
 end
 
-function add_line(env_id::UUID, begin_point::Float64_3, end_point::Float64_3, material_name::CStaticString{N})::UUID where N
-    @ccall libenv.add_line(env_id::UUID, begin_point::Float64_3, end_point::Float64_3, material_name::Cstring)::UUID
+function add_line(begin_point, end_point, material_name::CStaticString{N})::UUID where N
+    @ccall libenv.add_line(begin_point::Float64_3, end_point::Float64_3, material_name::Cstring)::UUID
 end
     
 # 
@@ -92,7 +92,7 @@ end
 # The Frame is what the image gets rendered into. It is mainly a wrapper around Filaments SwapChain.
 #
 
-create_frame(env_id::UUID, width::UInt32, height::UInt32)::UUID = @ccall libenv.create_frame(env_id::UUID, width::UInt32, height::UInt32)::UUID
+create_frame(env_id::UUID, width, height)::UUID = @ccall libenv.create_frame(env_id::UUID, width::UInt32, height::UInt32)::UUID
 get_pixel_data(frame_id::UUID, pixel_data::Ptr{Ptr{Cvoid}}, width::Ptr{UInt32}, height::Ptr{UInt32})::Bool = @ccall libenv.get_pixel_data(frame_id::UUID, pixel_data::Ptr{Ptr{Cvoid}}, width::Ptr{UInt32}, height::Ptr{UInt32})::UInt8
 disable_pixel_capture(frame_id::UUID)::Bool = @ccall libenv.disable_pixel_capture(frame_id::UUID)::UInt8
 
@@ -101,14 +101,14 @@ disable_pixel_capture(frame_id::UUID)::Bool = @ccall libenv.disable_pixel_captur
 #
 
 function create_camera(env_id::UUID;
-                       pos::Float64_3 = Float64_3(0.0, 0.0, 5.0),
-                       lookat::Float64_3 = Float64_3(0.0, 0.0, 0.0),
-                       up::Float64_3 = Float64_3(0.0, 1.0, 0.0),
-                       vertical_fov::Float64 = 60.0,
-                       near_plane::Float64 = 0.1,
-                       far_plane::Float64 = 50.0,
-                       width::UInt32 = UInt32(800),
-                       height::UInt32 = UInt32(600))::UUID
+                       pos = Float64_3(0.0, 0.0, 5.0),
+                       lookat = Float64_3(0.0, 0.0, 0.0),
+                       up = Float64_3(0.0, 1.0, 0.0),
+                       vertical_fov = 60.0,
+                       near_plane = 0.1,
+                       far_plane = 50.0,
+                       width = UInt32(800),
+                       height = UInt32(600))::UUID
 
     @ccall libenv.create_camera(env_id::UUID,
                                 pos::Float64_3,
@@ -131,32 +131,47 @@ render_frame(camera_id::UUID, frame_id::UUID)::Bool = @ccall libenv.render_frame
 # Window Handling
 #
 
-function create_window(camera_id::UUID, name::CStaticString{N}; target_fps::Int32 = 60)::UUID where N
+"Create a new window and set it as the current active window."
+function create_window(camera_id::UUID, name::CStaticString{N}; target_fps = 60)::UUID where N
     @ccall libenv.create_window(camera_id::UUID, target_fps::Int32, name::Cstring)::UUID
 end
 
-window_should_close(window_id::UUID)::Bool = @ccall libenv.window_should_close(window_id::UUID)::UInt8
-update_window(window_id::UUID)::Bool = @ccall libenv.update_window(window_id::UUID)::UInt8 # only call, when 'window_should_close()' returns false
-get_last_frame_time_ms(window_id::UUID)::Float64 = @ccall libenv.get_last_frame_time_ms(window_id::UUID)::Float64
+"Change the 'active window' to different window."
+set_active_window(window_id::UUID)::Bool = @ccall libenv.set_active_window(window_id::UUID)::UInt8
+
+is_active_window_set()::Bool = @ccall libenv.is_active_window_set()::UInt8
+
+"Checking for events like keyboard input etc. and rendering the window."
+update_window()::Bool = @ccall libenv.update_window()::UInt8
+
+"Get the time between the previous two frames of the active window."
+get_last_frame_time_of_window_ms()::Float64 = @ccall libenv.get_last_frame_time_of_window_ms()::Float64
+
+"Focus input from keyboard, mouse, joystick, etc. to the active window."
+focus_input_to_window()::Bool = @ccall libenv.focus_input_to_window()::UInt8
 
 #
 # Window User Input
 #
+
+const ENV_MAX_MOUSE_BUTTONS = 8
+const ENV_MAX_JOYSTICK_AXES = 8
 
 # Keyboard
 
 @enum SDL_Scancode begin
     SDL_SCANCODE_A = 4
     SDL_SCANCODE_D = 7
+    SDL_SCANCODE_R = 21
     SDL_SCANCODE_S = 22
     SDL_SCANCODE_W = 26
     SDL_SCANCODE_SPACE = 44
 end
 
-is_key_down(window_id::UUID, code::SDL_Scancode)::Bool = @ccall libenv.is_key_down(window_id::UUID, code::SDL_Scancode)::UInt8
-is_key_pressed(window_id::UUID, code::SDL_Scancode)::Bool = @ccall libenv.is_key_pressed(window_id::UUID, code::SDL_Scancode)::UInt8
-is_key_up(window_id::UUID, code::SDL_Scancode)::Bool = @ccall libenv.is_key_up(window_id::UUID, code::SDL_Scancode)::UInt8
-is_key_released(window_id::UUID, code::SDL_Scancode)::Bool = @ccall libenv.is_key_released(window_id::UUID, code::SDL_Scancode)::UInt8
+is_key_down(code::SDL_Scancode)::Bool = @ccall libenv.is_key_down(code::SDL_Scancode)::UInt8
+is_key_pressed(code::SDL_Scancode)::Bool = @ccall libenv.is_key_pressed(code::SDL_Scancode)::UInt8
+is_key_up(code::SDL_Scancode)::Bool = @ccall libenv.is_key_up(code::SDL_Scancode)::UInt8
+is_key_released(code::SDL_Scancode)::Bool = @ccall libenv.is_key_released(code::SDL_Scancode)::UInt8
 
 # Mouse
 
@@ -167,13 +182,13 @@ is_key_released(window_id::UUID, code::SDL_Scancode)::Bool = @ccall libenv.is_ke
     MOUSE_BUTTON_RIGHT = 3
 end
 
-is_mouse_button_down(window_id::UUID, button::Mouse_Button)::Bool = @ccall libenv.is_mouse_button_down(window_id::UUID, button::Mouse_Button)::UInt8
-is_mouse_button_pressed(window_id::UUID, button::Mouse_Button)::Bool = @ccall libenv.is_mouse_button_pressed(window_id::UUID, button::Mouse_Button)::UInt8
-is_mouse_button_up(window_id::UUID, button::Mouse_Button)::Bool = @ccall libenv.is_mouse_button_up(window_id::UUID, button::Mouse_Button)::UInt8
-is_mouse_button_released(window_id::UUID, button::Mouse_Button)::Bool = @ccall libenv.is_mouse_button_released(window_id::UUID, button::Mouse_Button)::UInt8
-get_mouse_pos(window_id::UUID)::Int32_2 = @ccall libenv.get_mouse_pos(window_id::UUID)::Int32_2
-get_mouse_delta(window_id::UUID)::Int32_2 = @ccall libenv.get_mouse_delta(window_id::UUID)::Int32_2
-get_mouse_wheel_delta(window_id::UUID)::Int32_2 = @ccall libenv.get_mouse_wheel_delta(window_id::UUID)::Int32_2
+is_mouse_button_down(button::Mouse_Button)::Bool = @ccall libenv.is_mouse_button_down(button::Mouse_Button)::UInt8
+is_mouse_button_pressed(button::Mouse_Button)::Bool = @ccall libenv.is_mouse_button_pressed(button::Mouse_Button)::UInt8
+is_mouse_button_up(button::Mouse_Button)::Bool = @ccall libenv.is_mouse_button_up(button::Mouse_Button)::UInt8
+is_mouse_button_released(button::Mouse_Button)::Bool = @ccall libenv.is_mouse_button_released(button::Mouse_Button)::UInt8
+get_mouse_pos()::Int32_2 = @ccall libenv.get_mouse_pos()::Int32_2
+get_mouse_delta()::Int32_2 = @ccall libenv.get_mouse_delta()::Int32_2
+get_mouse_wheel_delta()::Int32_2 = @ccall libenv.get_mouse_wheel_delta()::Int32_2
 
 #
 # Entity Transformation
@@ -181,12 +196,12 @@ get_mouse_wheel_delta(window_id::UUID)::Int32_2 = @ccall libenv.get_mouse_wheel_
 
 get_position(obj_id::UUID)::Float64_3 = @ccall libenv.get_position(obj_id::UUID)::Float64_3
 
-set_position(obj_id::UUID, pos::Float64_3)::Bool = @ccall libenv.set_position(obj_id::UUID, pos::Float64_3)::UInt8
+set_position(obj_id::UUID, pos)::Bool = @ccall libenv.set_position(obj_id::UUID, pos::Float64_3)::UInt8
 set_orientation(obj_id::UUID, orientation::Quaternion)::Bool = @ccall libenv.set_orientation(obj_id::UUID, orientation::Quaternion)::UInt8
-set_position_and_orientation(obj_id::UUID, pos::Float64_3, orientation::Quaternion)::Bool = @ccall libenv.set_position_and_orientation(obj_id::UUID, pos::Float64_3, orientation::Quaternion)::UInt8
+set_position_and_orientation(obj_id::UUID, pos, orientation::Quaternion)::Bool = @ccall libenv.set_position_and_orientation(obj_id::UUID, pos::Float64_3, orientation::Quaternion)::UInt8
 
 #
-# User Camera
+# User Controllable Camera
 #
 
 @kwdef mutable struct Camera_Motion_State
@@ -201,12 +216,9 @@ end
     THIRD_PERSON
 end
 
-function update_camera_by_window_input_first_person!(camera::UUID, window::UUID, state::Camera_Motion_State,
-                                                     zoom_sensitivity::Float64,
-                                                     max_vertical_fov::Float64,
-                                                     min_vertical_fov::Float64)
+function update_camera_by_window_input_first_person!(camera::UUID, state::Camera_Motion_State, zoom_sensitivity, max_vertical_fov, min_vertical_fov)
     # Zooming
-    scroll_delta_effective = get_mouse_wheel_delta(window) .* zoom_sensitivity * get_last_frame_time_ms(window)
+    scroll_delta_effective = get_mouse_wheel_delta() .* zoom_sensitivity * get_last_frame_time_of_window_ms()
     prev_fov = get_camera_fov_vertical(camera)
     new_fov = prev_fov + prev_fov * scroll_delta_effective.y
     if (min_vertical_fov <= new_fov <= max_vertical_fov)
@@ -217,11 +229,9 @@ function update_camera_by_window_input_first_person!(camera::UUID, window::UUID,
     set_position_and_orientation(camera, state.orbit_center, state.orientation)
 end
 
-function update_camera_by_window_input_third_person!(camera::UUID, window::UUID, state::Camera_Motion_State,
-                                                     zoom_sensitivity::Float64,
-                                                     max_center_distance::Float64, min_center_distance::Float64)
+function update_camera_by_window_input_third_person!(camera::UUID, state::Camera_Motion_State, zoom_sensitivity, max_center_distance, min_center_distance)
     # Zooming
-    scroll_delta_effective = get_mouse_wheel_delta(window) .* zoom_sensitivity * get_last_frame_time_ms(window)
+    scroll_delta_effective = get_mouse_wheel_delta() .* zoom_sensitivity * get_last_frame_time_of_window_ms()
     new_center_distance = state.center_distance + state.center_distance * scroll_delta_effective.y
     if (min_center_distance <= new_center_distance <= max_center_distance)
         state.center_distance = new_center_distance
@@ -234,20 +244,20 @@ function update_camera_by_window_input_third_person!(camera::UUID, window::UUID,
     set_position(camera, state.orbit_center - get_camera_forward_vector(camera) .* state.center_distance)
 end
 
-function update_camera_by_window_input!(camera::UUID, window::UUID, state::Camera_Motion_State;
+function update_camera_by_window_input!(camera::UUID, state::Camera_Motion_State;
                                                      mode::Camera_Motion_Mode = THIRD_PERSON,
-                                                     rotation_sensitivity::Float64 = 0.001,
-                                                     translation_sensitivity::Float64 = 0.003,
-                                                     zoom_sensitivity::Float64 = 0.005,
-                                                     walk_speed::Float64 = 0.5,
-                                                     max_vertical_fov::Float64 = 100.0,
-                                                     min_vertical_fov::Float64 = 5.0,
-                                                     max_center_distance::Float64 = 10000.0,
-                                                     min_center_distance::Float64 = 0.01)
+                                                     rotation_sensitivity = 0.001,
+                                                     translation_sensitivity = 0.003,
+                                                     zoom_sensitivity = 0.005,
+                                                     walk_speed = 0.5,
+                                                     max_vertical_fov = 100.0,
+                                                     min_vertical_fov = 5.0,
+                                                     max_center_distance = 10000.0,
+                                                     min_center_distance = 0.01)
 
     # Rotation
-    if is_mouse_button_down(window, MOUSE_BUTTON_LEFT)
-        mouse_delta_effective = -get_mouse_delta(window) .* rotation_sensitivity * get_last_frame_time_ms(window)
+    if is_mouse_button_down(MOUSE_BUTTON_LEFT)
+        mouse_delta_effective = -get_mouse_delta() .* rotation_sensitivity * get_last_frame_time_of_window_ms()
         
         orientation_delta_pitch = normed_axis_angle_to_quaternion(mouse_delta_effective.y, Float64_3(1.0, 0.0, 0.0)) # in local coordinate space
         orientation_delta_yaw = normed_axis_angle_to_quaternion(mouse_delta_effective.x, get_camera_up_vector(camera)) # in global coordinate space
@@ -258,24 +268,24 @@ function update_camera_by_window_input!(camera::UUID, window::UUID, state::Camer
     end
     
     # Walking
-    if is_key_down(window, SDL_SCANCODE_W)
-        state.orbit_center += get_camera_forward_vector(camera) .* (walk_speed / get_last_frame_time_ms(window))
+    if is_key_down(SDL_SCANCODE_W)
+        state.orbit_center += get_camera_forward_vector(camera) .* (walk_speed / get_last_frame_time_of_window_ms())
     end
-    if is_key_down(window, SDL_SCANCODE_S)
-        state.orbit_center -= get_camera_forward_vector(camera) .* (walk_speed / get_last_frame_time_ms(window))
+    if is_key_down(SDL_SCANCODE_S)
+        state.orbit_center -= get_camera_forward_vector(camera) .* (walk_speed / get_last_frame_time_of_window_ms())
     end
-    if is_key_down(window, SDL_SCANCODE_D)
+    if is_key_down(SDL_SCANCODE_D)
         dir = norm_vector(cross_product(get_camera_forward_vector(camera), get_camera_up_vector(camera)))
-        state.orbit_center += dir .* (walk_speed / get_last_frame_time_ms(window))
+        state.orbit_center += dir .* (walk_speed / get_last_frame_time_of_window_ms())
     end
-    if is_key_down(window, SDL_SCANCODE_A)
+    if is_key_down(SDL_SCANCODE_A)
         dir = norm_vector(cross_product(get_camera_forward_vector(camera), get_camera_up_vector(camera)))
-        state.orbit_center -= dir .* (walk_speed / get_last_frame_time_ms(window))
+        state.orbit_center -= dir .* (walk_speed / get_last_frame_time_of_window_ms())
     end
 
     # Paning
-    if is_mouse_button_down(window, MOUSE_BUTTON_RIGHT)
-        mouse_delta_effective = get_mouse_delta(window) .* translation_sensitivity
+    if is_mouse_button_down(MOUSE_BUTTON_RIGHT)
+        mouse_delta_effective = get_mouse_delta() .* translation_sensitivity
         forward = get_camera_forward_vector(camera)
         up = get_camera_up_vector(camera)
         right = norm_vector(cross_product(up, forward))
@@ -284,8 +294,146 @@ function update_camera_by_window_input!(camera::UUID, window::UUID, state::Camer
     end
     
     if mode == FIRST_PERSON
-        update_camera_by_window_input_first_person!(camera, window, state, zoom_sensitivity, max_vertical_fov, min_vertical_fov)
+        update_camera_by_window_input_first_person!(camera, state, zoom_sensitivity, max_vertical_fov, min_vertical_fov)
     elseif mode == THIRD_PERSON
-        update_camera_by_window_input_third_person!(camera, window, state, zoom_sensitivity, max_center_distance, min_center_distance)
+        update_camera_by_window_input_third_person!(camera, state, zoom_sensitivity, max_center_distance, min_center_distance)
+    end
+end
+
+#
+# Joystick
+#
+
+connect_to_joystick()::Bool = @ccall libenv.connect_to_joystick()::UInt8
+is_connected_to_joystick()::Bool = @ccall libenv.is_connected_to_joystick()::UInt8
+disconnect_from_joystick()::Bool = @ccall libenv.disconnect_from_joystick()::UInt8
+# axis_idx - 1 because c++ uses 0 based indexing
+get_joystick_axis_raw(axis_idx)::Int16 = @ccall libenv.get_joystick_axis_raw((axis_idx - 1)::UInt8)::Int16
+
+@enum Joystick_Axis begin
+    JOYSTICK_NONE = 0
+    JOYSTICK_THROTTLE = 1
+    JOYSTICK_YAW = 2
+    JOYSTICK_PITCH = 3
+    JOYSTICK_ROLL = 4
+end
+
+# axis_idx - 1 because c++ uses 0 based indexing
+assign_joystick_axis_idx_to_axis_type(axis_idx, axis_type::Joystick_Axis)::Bool = @ccall libenv.assign_joystick_axis_idx_to_axis_type((axis_idx - 1)::UInt8, axis_type::UInt8)::UInt8
+set_joystick_axis_range(axis_type::Joystick_Axis, min, max, zero)::Bool = @ccall libenv.set_joystick_axis_range(axis_type::UInt8, min::Int16, max::Int16, zero::Int16)::UInt8
+get_joystick_axis_mapped_value(axis_type::Joystick_Axis)::Float64 = @ccall libenv.get_joystick_axis_mapped_value(axis_type::UInt8)::Float64
+
+function find_dominant_joystick_axis_and_its_max_range()::Tuple{UInt8, Int16, Int16} # axis_idx, min value, max value
+
+    # create two Int16 vectors
+    joystick_axes_raw_min = fill(Int16(2^15-1), ENV_MAX_JOYSTICK_AXES)
+    joystick_axes_raw_max = fill(Int16(-2^15), ENV_MAX_JOYSTICK_AXES)
+
+    # First find the raw min and max values for all axes
+    start_time = time()
+    while time() - start_time < 3.0 # collect joystick data for 3 seconds
+        for axis_idx::UInt8 in 1:ENV_MAX_JOYSTICK_AXES
+            raw = get_joystick_axis_raw(axis_idx)
+            
+            if raw < joystick_axes_raw_min[axis_idx]
+                joystick_axes_raw_min[axis_idx] = raw
+            elseif raw > joystick_axes_raw_max[axis_idx]
+                joystick_axes_raw_max[axis_idx] = raw
+            end
+        end
+
+        # Usually the window is not selected when this is called,
+        # so we need to ensure that our window receives the joystick input.
+        focus_input_to_window()
+        update_window()
+    end
+
+    # Determine the axis, which has been moved the most
+    most_moved_axis = 1;
+    most_moved_delta = joystick_axes_raw_max[1] - joystick_axes_raw_min[1]
+    for axis_idx::UInt8 in 2:ENV_MAX_JOYSTICK_AXES
+        axis_moved_delta = joystick_axes_raw_max[axis_idx] - joystick_axes_raw_min[axis_idx]
+        
+        if axis_moved_delta > most_moved_delta
+            most_moved_axis = axis_idx
+            most_moved_delta = axis_moved_delta
+        end
+    end
+
+    return (most_moved_axis, joystick_axes_raw_min[most_moved_axis], joystick_axes_raw_max[most_moved_axis])
+end
+
+function generate_joystick_calibration_code()::Expr
+
+    if !(is_active_window_set())
+        println("ERROR: You need to create a Window so that we have a means to receive the joystick input.")
+        return Expr()
+    end
+
+    if !(is_connected_to_joystick())
+        println("ERROR: Connect to joystick before performing the manual calibration.")
+        return Expr()
+    end
+    
+    println("Move THROTTLE up and down, reaching min and max.");
+    sleep(0.5) # this delay accounts for human reaction time
+    throttle_axis_idx, throttle_raw_value_min, throttle_raw_value_max = find_dominant_joystick_axis_and_its_max_range()
+    println("Detected throttle on axis '", throttle_axis_idx, "' with min = ", throttle_raw_value_min, ", and max = ", throttle_raw_value_max)
+
+    println("Move YAW left and right, reaching min and max.");
+    sleep(0.5)
+    yaw_axis_idx, yaw_raw_value_min, yaw_raw_value_max = find_dominant_joystick_axis_and_its_max_range()
+    println("Detected yaw on axis '", yaw_axis_idx, "' with min = ", yaw_raw_value_min, ", and max = ", yaw_raw_value_max)
+
+    println("Move PITCH up and down, reaching min and max.");
+    sleep(0.5)
+    pitch_axis_idx, pitch_raw_value_min, pitch_raw_value_max = find_dominant_joystick_axis_and_its_max_range()
+    println("Detected pitch on axis '", pitch_axis_idx, "' with min = ", pitch_raw_value_min, ", and max = ", pitch_raw_value_max)
+
+    println("Move ROLL left and right, reaching min and max.");
+    sleep(0.5)
+    roll_axis_idx, roll_raw_value_min, roll_raw_value_max = find_dominant_joystick_axis_and_its_max_range()
+    println("Detected roll on axis '", roll_axis_idx, "' with min = ", roll_raw_value_min, ", and max = ", roll_raw_value_max)
+
+    println("Now CENTER all your sticks.");
+    sleep(0.5)
+
+    throttle_raw_zero = 0.0
+    yaw_raw_zero = 0.0
+    pitch_raw_zero = 0.0
+    roll_raw_zero = 0.0
+
+    start_time = time()
+    while time() - start_time < 4.0 # collect joystick data for 4 seconds
+        α = 0.1
+        throttle_raw_zero = α * get_joystick_axis_raw(throttle_axis_idx) + (1 - α) * throttle_raw_zero
+        yaw_raw_zero = α * get_joystick_axis_raw(yaw_axis_idx) + (1 - α) * yaw_raw_zero
+        pitch_raw_zero = α * get_joystick_axis_raw(pitch_axis_idx) + (1 - α) * pitch_raw_zero
+        roll_raw_zero = α * get_joystick_axis_raw(roll_axis_idx) + (1 - α) * roll_raw_zero
+
+        # Usually the window is not selected when this is called,
+        # so we need to ensure that our window receives the joystick input.
+        focus_input_to_window()
+        update_window()
+    end
+    
+    println("All Done!")
+    
+    return quote
+        if(!TinyDronesSim.Environments.is_connected_to_joystick())
+            println("Connect to joystick before executing the calibration routine.")
+        else
+            TinyDronesSim.Environments.assign_joystick_axis_idx_to_axis_type($throttle_axis_idx, TinyDronesSim.Environments.JOYSTICK_THROTTLE)
+            TinyDronesSim.Environments.set_joystick_axis_range(TinyDronesSim.Environments.JOYSTICK_THROTTLE, $throttle_raw_value_min, $throttle_raw_value_max, $(round(Int16, throttle_raw_zero)))
+            
+            TinyDronesSim.Environments.assign_joystick_axis_idx_to_axis_type($yaw_axis_idx, TinyDronesSim.Environments.JOYSTICK_YAW)
+            TinyDronesSim.Environments.set_joystick_axis_range(TinyDronesSim.Environments.JOYSTICK_YAW, $yaw_raw_value_min, $yaw_raw_value_max, $(round(Int16, yaw_raw_zero)))
+            
+            TinyDronesSim.Environments.assign_joystick_axis_idx_to_axis_type($pitch_axis_idx, TinyDronesSim.Environments.JOYSTICK_PITCH)
+            TinyDronesSim.Environments.set_joystick_axis_range(TinyDronesSim.Environments.JOYSTICK_PITCH, $pitch_raw_value_min, $pitch_raw_value_max, $(round(Int16, pitch_raw_zero)))
+            
+            TinyDronesSim.Environments.assign_joystick_axis_idx_to_axis_type($roll_axis_idx, TinyDronesSim.Environments.JOYSTICK_ROLL)
+            TinyDronesSim.Environments.set_joystick_axis_range(TinyDronesSim.Environments.JOYSTICK_ROLL, $roll_raw_value_min, $roll_raw_value_max, $(round(Int16, roll_raw_zero)))
+        end
     end
 end

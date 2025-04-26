@@ -4,7 +4,7 @@
 
 #define ENV_ERR_MEM_ALLOC "Out of memory. By more RAM lol"
 
-enum class Env_Log_Type {HARD_ERROR, SOFT_ERROR, WARNING, INFO};
+enum class Env_Log_Type {HARD_ERROR, SOFT_ERROR, WARNING, INFO, TODO};
 
 void env_log(Env_Log_Type type, const char* user_msg, ...);
 
@@ -20,9 +20,12 @@ void env_soft_error(const char* error_msg, ARGS... args) { env_log(Env_Log_Type:
 template <typename... ARGS>
 void env_hard_error(const char* error_msg, ARGS... args) { env_log(Env_Log_Type::HARD_ERROR, (error_msg), args...); std::exit(1); }
 
+template <typename... ARGS>
+void env_todo(const char* todo_msg, ARGS... args) { env_log(Env_Log_Type::TODO, (todo_msg), args...); std::exit(0); }
+
 #define ENV_OBJ_TYPE_ARGUMENT_ERROR(got_type, expected_type)            \
     do {                                                                \
-        env_soft_error("The function %s expected object of type '%s' but got '%s'", \
+        env_soft_error("The function '%s' expected object of type '%s' but got '%s'", \
                        __FUNCTION__, env_object_type_name[(expected_type)], \
                        env_object_type_name[(got_type)]);               \
     } while (false);

@@ -12,7 +12,7 @@ namespace fmt = filament;
 
 double3 get_position(UUID obj_id)
 {
-    Env_Object obj = state.get_object(obj_id);
+    Env_Object obj = g_objm.get_object(obj_id);
     futils::Entity fentity = obj.get_representing_filament_entity();
     
     fmt::TransformManager& trans_m = obj.associated_env->engine->getTransformManager();
@@ -33,7 +33,7 @@ double3 get_position(UUID obj_id)
 
 bool set_position(UUID obj_id, double3 pos)
 {
-    Env_Object obj = state.get_object(obj_id);
+    Env_Object obj = g_objm.get_object(obj_id);
     futils::Entity fentity = obj.get_representing_filament_entity();
     
     fmt::TransformManager& trans_m = obj.associated_env->engine->getTransformManager();
@@ -47,7 +47,7 @@ bool set_position(UUID obj_id, double3 pos)
 
 bool set_orientation(UUID obj_id, Quaternion orientation)
 {
-    Env_Object obj = state.get_object(obj_id);
+    Env_Object obj = g_objm.get_object(obj_id);
     futils::Entity fentity = obj.get_representing_filament_entity();
     
     fmt::TransformManager& trans_m = obj.associated_env->engine->getTransformManager();
@@ -64,7 +64,7 @@ bool set_orientation(UUID obj_id, Quaternion orientation)
 
 bool set_position_and_orientation(UUID obj_id, double3 pos, Quaternion orientation)
 {
-    Env_Object obj = state.get_object(obj_id);
+    Env_Object obj = g_objm.get_object(obj_id);
     futils::Entity fentity = obj.get_representing_filament_entity();
     
     fmt::TransformManager& trans_m = obj.associated_env->engine->getTransformManager();

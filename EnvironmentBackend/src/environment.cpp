@@ -86,6 +86,8 @@ UUID create_environment()
 {
     Environment* env = new Environment;
 
+
+
     env->engine = fmt::Engine::create(ENGINE_BACKEND);
     env->scene = env->engine->createScene();
     
@@ -103,8 +105,10 @@ UUID create_environment()
         
     env->gltf.asset_loader = fgltfio::AssetLoader::create(asset_loader_config);
     
-    Env_Object obj = state.add_object({env});
-    add_lit_material(obj.id, "DefaultMaterial");
+    Env_Object obj = g_objm.add_object(env);
+    g_objm.set_active_environment(env, obj.id);
+    
+    add_lit_material("DefaultMaterial");
     return obj.id;
 }
 
@@ -125,12 +129,14 @@ Environment::~Environment()
 
     // destroy handles
     engine->destroy(scene);
-    fmt::Engine::destroy(&engine);
+
+    // FIXME: WE SHOULD DESTROY THE ENGINE, BUT FILAMENT CRASHES HERE SOMETIMES
+    // fmt::Engine::destroy(&engine);
 }
 
-bool add_ibl_skybox(UUID env_id, const char* file_path_cstr)
+bool add_ibl_skybox(const char* file_path_cstr)
 {
-    Environment* env = state.get_as_environment(env_id);
+    Environment* env = g_objm.get_active_environment();
     if (!env) return false;
     
     futils::Path path{file_path_cstr};
@@ -194,9 +200,9 @@ bool add_ibl_skybox(UUID env_id, const char* file_path_cstr)
     return true;
 }
 
-UUID add_filamesh_from_file(UUID env_id, const char* path)
+UUID add_filamesh_from_file(const char* path)
 {
-    Environment* env = state.get_as_environment(env_id);
+    Environment* env = g_objm.get_active_environment();
     if (!env) return ENV_INVALID_UUID;
     
     fmesh::MeshReader::Mesh mesh = filamesh::MeshReader::loadMeshFromFile(
@@ -207,7 +213,7 @@ UUID add_filamesh_from_file(UUID env_id, const char* path)
     // add transform component to the mesh (make it transformable)
     env->engine->getTransformManager().create(mesh.renderable);
 
-    return state.add_object({mesh.renderable, env}).id;
+    return g_objm.add_object(mesh.renderable, env).id;
 }
 
 static fmt::MaterialInstance* create_material_instance(Environment* env, float3 base_color, float roughness, float metallic, float reflectance, float sheen_color, float clear_coat, float clear_coat_roughness)
@@ -231,9 +237,9 @@ static fmt::MaterialInstance* create_material_instance(Environment* env, float3 
     return mat_i;
 }
 
-bool add_lit_material(UUID env_id, const char* material_name, float3 base_color, float roughness, float metallic, float reflectance, float sheen_color, float clear_coat, float clear_coat_roughness)
+bool add_lit_material(const char* material_name, float3 base_color, float roughness, float metallic, float reflectance, float sheen_color, float clear_coat, float clear_coat_roughness)
 {
-    Environment* env = state.get_as_environment(env_id);
+    Environment* env = g_objm.get_active_environment();
     if (!env) return false;
 
     fmt::MaterialInstance* mat_i = create_material_instance(env, base_color, roughness, metallic, reflectance, sheen_color, clear_coat, clear_coat_roughness);
@@ -241,9 +247,9 @@ bool add_lit_material(UUID env_id, const char* material_name, float3 base_color,
     return true;
 }
 
-bool add_unlit_material(UUID envrionment_id, const char* material_name, float3 base_color, float4 emmisive)
+bool add_unlit_material(const char* material_name, float3 base_color, float4 emmisive)
 {
-    Environment* env = state.get_as_environment(envrionment_id);
+    Environment* env = g_objm.get_active_environment();
     if (!env) return false;
 
     fmt::MaterialInstance* mat_i = create_material_instance(env, base_color, emmisive);
@@ -251,9 +257,9 @@ bool add_unlit_material(UUID envrionment_id, const char* material_name, float3 b
     return true;
 }
 
-UUID add_gltf_asset_and_create_instance(UUID env_id, const char* filepath)
+UUID add_gltf_asset_and_create_instance(const char* filepath)
 {
-    Environment* env = state.get_as_environment(env_id);
+    Environment* env = g_objm.get_active_environment();
     if (!env) return ENV_INVALID_UUID;
 
     uint8_t* data = nullptr;
@@ -280,7 +286,7 @@ UUID add_gltf_asset_and_create_instance(UUID env_id, const char* filepath)
     fgltfio::FilamentInstance* instance = asset->getInstance();
     env->scene->addEntities(instance->getEntities(), instance->getEntityCount());
     
-    return state.add_object({instance, env}).id;
+    return g_objm.add_object(instance, env).id;
 }
 
 // void __destroy_all_gltf_instances_and_asset(fgltfio::FilamentInstance* instace, Environment* env)
@@ -290,7 +296,7 @@ UUID add_gltf_asset_and_create_instance(UUID env_id, const char* filepath)
 
 UUID create_gltf_instance_sibling(UUID gltf_instance_id)
 {
-    Env_Object obj = state.get_object(gltf_instance_id);
+    Env_Object obj = g_objm.get_object(gltf_instance_id);
     if (obj.type != ENVO_FILAMENT_GLTF_INSTANCE) {
         ENV_OBJ_TYPE_ARGUMENT_ERROR(obj.type, ENVO_FILAMENT_GLTF_INSTANCE);
         return false;
@@ -300,18 +306,14 @@ UUID create_gltf_instance_sibling(UUID gltf_instance_id)
     fgltfio::FilamentInstance* sibling_instance = obj.associated_env->gltf.asset_loader->createInstance(
         (fgltfio::FilamentAsset*)obj.gltf_instance->getAsset());
     obj.associated_env->scene->addEntities(sibling_instance->getEntities(), sibling_instance->getEntityCount());
-    return state.add_object({sibling_instance, obj.associated_env}).id;
+    return g_objm.add_object(sibling_instance, obj.associated_env).id;
 }
 
-/* DONT FORGET: LEAKING MEMORY (just temporary) (the memory might be managed by filament, not sure) */
-UUID add_plane(UUID env_id, double3 center, double length_x, double length_z, const char* material_name, Quaternion rotation)
+/* DONT FORGET: LEAKING MEMORY (just temporary) */
+UUID add_plane(double3 center, double length_x, double length_z, const char* material_name, Quaternion rotation)
 {
-    Env_Object obj = state.get_object(env_id);
-    if (obj.type != ENVO_ENVIRONMENT) {
-        ENV_OBJ_TYPE_ARGUMENT_ERROR(obj.type, ENVO_ENVIRONMENT);
-        return ENV_INVALID_UUID;
-    }
-    Environment* env = obj.env;
+    Environment* env = g_objm.get_active_environment();
+    if (!env) return ENV_INVALID_UUID;
 
     uint32_t* indices = new uint32_t[6]{ 0, 1, 2, 2, 3, 0 };
 
@@ -366,13 +368,13 @@ UUID add_plane(UUID env_id, double3 center, double length_x, double length_z, co
 
     env->scene->addEntity(plane_renderable);
     
-    return state.add_object({plane_renderable, env}).id;
+    return g_objm.add_object(plane_renderable, env).id;
 }
 
 /* DONT FORGET: LEAKING MEMORY (just temporary) */
-UUID add_line(UUID env_id, double3 begin, double3 end, const char* material_name)
+UUID add_line(double3 begin, double3 end, const char* material_name)
 {
-    Environment* env = state.get_as_environment(env_id);
+    Environment* env = g_objm.get_active_environment();
     if (!env) return ENV_INVALID_UUID;
     
     uint32_t* indices = new uint32_t[2] { 0, 1 };
@@ -412,5 +414,5 @@ UUID add_line(UUID env_id, double3 begin, double3 end, const char* material_name
 
     env->scene->addEntity(line_renderable);
     
-    return state.add_object({line_renderable, env}).id;
+    return g_objm.add_object(line_renderable, env).id;
 }

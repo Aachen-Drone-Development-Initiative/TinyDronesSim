@@ -20,17 +20,16 @@ end
     up::Float64_3 = Float64_3(0.0, 1.0, 0.0) # a vector defining the 'up' direction of the drone
     motor_inertia::Float64 = 0.0
     
-    thrusters::SVector{4, Thruster} = (Thruster(angular_velo=-300, pos=Float64_3(+0.05, 0, +0.05)),
-                                       Thruster(angular_velo=300, pos=Float64_3(+0.05, 0, -0.05)),
-                                       Thruster(angular_velo=155, pos=Float64_3(-0.05, 0, +0.05)),
-                                       Thruster(angular_velo=-155, pos=Float64_3(-0.05, 0, -0.05)))
+    thrusters::Vector{Thruster} = [Thruster(angular_velo=-300, pos=Float64_3(+0.05, 0, +0.05)),
+                                   Thruster(angular_velo=300, pos=Float64_3(+0.05, 0, -0.05)),
+                                   Thruster(angular_velo=155, pos=Float64_3(-0.05, 0, +0.05)),
+                                   Thruster(angular_velo=-155, pos=Float64_3(-0.05, 0, -0.05))]
     pos::Float64_3 = Float64_3(0.0, 0.0, 0.0)             # position
     velo::Float64_3 = Float64_3(0.0, 0.0, 0.0)            # velocity
     orientation::Quaternion = identity_quaternion()
     angular_velo::Float64_3 = Float64_3(0.0, 0.0, 0.0)    # angular velocity vector [radians / s]
 
     # stuff for visualization
-    associated_environment::Env.UUID = 0
     gltf_model_instance::Env.UUID = 0
     trail::Vector{Float32_3} = Vector{Float32_3}(undef, 400) # For rendering (and especially with GPUs) 32-bit floats are the standard
 end
@@ -55,15 +54,15 @@ function TDS.get_mechanical_reaction(drone::Drone)::Resultant3D
     torque = rotate_vector(torque, drone.orientation)
 
     # add gravity force
-    force += Float64_3(0, 0, -drone.mass * gravitational_acceleration)
+    force += Float64_3(0, -drone.mass * gravitational_acceleration, 0)
     
     return Resultant3D(force, torque, drone.pos)
 end
 
 function TDS.get_inertia_matrix(drone::Drone)::Float64_3x3
-    return Float64_3x3([0.05 0    0
-                        0    0.05 0
-                        0    0    0.05])
+    return Float64_3x3([0.1 0    0
+                        0    0.1 0
+                        0    0    0.1])
 end
 
 TDS.get_pos(drone::Drone)::Float64_3              = drone.pos
@@ -76,15 +75,16 @@ TDS.set_velocity!(drone::Drone, velo::Float64_3)                 = drone.velo = 
 TDS.set_orientation!(drone::Drone, orientation::Quaternion)      = drone.orientation = orientation
 TDS.set_angular_velocity!(drone::Drone, angular_velo::Float64_3) = drone.angular_velo = angular_velo
 
-function Env.add_renderables(env_id::Env.UUID, drone::Drone)
-    drone.associated_environment = env_id
-    drone.gltf_model_instance = Env.add_gltf_asset_and_create_instance(env_id, cstatic"/home/yuzeni/projekte/TinyDronesSim/EnvironmentBackend/assets/TinyDroneEspS3.glb");
+function add_renderables(drone::Drone)
+    drone.gltf_model_instance = Env.add_gltf_asset_and_create_instance(cstatic"./EnvironmentBackend/assets/TinyDroneEspS3.glb");
 end
 
-function Env.update_renderables(drone::Drone)
+function update_renderables(drone::Drone)
     prev_drone_pos = Env.get_position(drone.gltf_model_instance)
-    Env.set_position_and_orientation(drone.gltf_model_instance, get_pos(drone), get_orientation(drone))
+    
+    # FIXME: The orientation is for some reason not correct, using the 'conjugate' "fixes" things, but this is obviously not ideal
+    Env.set_position_and_orientation(drone.gltf_model_instance, get_pos(drone), conjugate(get_orientation(drone)))
 
     # this is a retarded method for rendering the trail
-    Env.add_line(drone.associated_environment, prev_drone_pos, get_pos(drone), cstatic"white")
+    Env.add_line(prev_drone_pos, get_pos(drone), cstatic"white")
 end

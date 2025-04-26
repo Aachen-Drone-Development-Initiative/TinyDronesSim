@@ -30,4 +30,4 @@ struct Frame {
 };
 
 Frame* __create_frame(Environment* env, fmt::SwapChain* swap_chain);
-bool __render_frame(Camera* camera, Frame* frame);
+bool render_frame(Camera* camera, Frame* frame);

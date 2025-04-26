@@ -18,6 +18,9 @@ void env_log(Env_Log_Type type, const char* user_msg, ...)
     case Env_Log_Type::HARD_ERROR:
         printf("FATAL ERROR: ");
         break;
+    case Env_Log_Type::TODO:
+        printf("TODO: ");
+        break;
     };
     va_list args;
     va_start(args, user_msg);
