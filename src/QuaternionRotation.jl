@@ -18,7 +18,7 @@ export Quaternion,
     quaternion_to_normed_axis_angle
 
 # q = w + x * i + y * j + z * k
-# this is conform with filaments Quaternion memory layout
+# this conforms with filaments Quaternion memory layout
 struct Quaternion
     x::Float64
     y::Float64
@@ -36,10 +36,10 @@ quaternion_cw_y(radians::Float64) = normed_axis_angle_to_quaternion(-radians, Fl
 quaternion_ccw_z(radians::Float64) = normed_axis_angle_to_quaternion(radians, Float64_3(0.0, 0.0, 1.0))
 quaternion_cw_z(radians::Float64) = normed_axis_angle_to_quaternion(-radians, Float64_3(0.0, 0.0, 1.0))
 
-# convert axis angles (which need to be normed first) to a quaternion
+"Convert axis angles (which need to be normed first) to a quaternion."
 normed_axis_angle_to_quaternion(theta::Float64, v::Float64_3) = Quaternion((v .* sin(theta * 0.5))..., cos(theta * 0.5))
 
-# The magnitude of 'v' is interpreted as the angle of rotation in radians ('theta')
+"The magnitude of 'v' is interpreted as the angle of rotation in radians ('theta')."
 function axis_angle_to_quaternion(v::Float64_3, epsilon::Float64)
     theta = euclid_norm(v)
     if theta > epsilon
@@ -65,7 +65,7 @@ import Base.*
 
 conjugate(q::Quaternion) = Quaternion(-q.x, -q.y, -q.z, q.w)
 
-# The resulting quaternion behaves as if q is applied *first* and r is applied *afterterwards*
+"The resulting quaternion behaves as if q is applied *first* and r is applied *afterterwards*."
 function combine(q::Quaternion, r::Quaternion)::Quaternion
     return q * r
 end

@@ -1,32 +1,25 @@
 using TinyDronesSim
-const TDS = TinyDronesSim
-const ENV = TinyDronesSim.Environments
+using StaticStrings
+const Env = TinyDronesSim.Environments
 
-env = ENV.create_environment()
-camera = ENV.create_camera(env, ENV.Camera_Settings())
-camera_motion_state = ENV.Camera_Motion_State()
-camera_motion_settings = ENV.Camera_Motion_Settings()
-window = ENV.create_window(camera, target_fps = 60)
+env = Env.create_environment()
+camera = Env.create_camera(env, far_plane = 200.0)
+camera_motion_state = Env.Camera_Motion_State()
+window = Env.create_window(camera, cstatic"environment test")
 
-ENV.add_filamesh_from_file(env, cstatic"./EnvironmentBackend/assets/suzanne.filamesh")
+Env.add_filamesh_from_file(cstatic"./EnvironmentBackend/assets/suzanne.filamesh")
 
-gltf_instance = ENV.add_gltf_asset_and_create_instance(env, cstatic"./EnvironmentBackend/assets/magic_laboratory.glb");
+gltf_instance = Env.add_gltf_asset_and_create_instance(cstatic"./EnvironmentBackend/assets/castle.glb");
+gltf_instance_sibling = Env.create_gltf_instance_sibling(gltf_instance)
+Env.set_position(gltf_instance, Float64_3(50, 0, 0))
 
-gltf_instance_entity = ENV.get_gltf_instance_entity(env, gltf_instance)
-ENV.set_position(env, gltf_instance_entity, Float64_3(-1, -2, -3))
-
-gltf_instance_sib1 = ENV.create_gltf_instance_sibling(env, gltf_instance)
-
-ENV.add_ibl_skybox(env, cstatic"./assets/rogland_sunset_2k.hdr")
+Env.add_ibl_skybox(cstatic"./EnvironmentBackend/assets/rogland_sunset_2k.hdr")
 
 try
-    while !ENV.window_should_close(window)
-        ENV.update_window(window)
-        ENV.update_camera_by_window_input!(camera, window, camera_motion_state, camera_motion_settings)
+    while Env.exists(window)
+        Env.update_camera_by_window_input!(camera, camera_motion_state)
+        Env.update_window()
     end
 finally
-    # destroy in revese order of creation
-    ENV.destroy_window!(window)
-    ENV.destroy_camera!(camera)
-    ENV.destroy_environment!(env)
+    Env.destroy_everything()
 end

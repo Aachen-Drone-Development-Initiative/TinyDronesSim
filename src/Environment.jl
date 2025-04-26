@@ -63,16 +63,15 @@ function add_unlit_material(material_name::CStaticString{N} = cstatic"DefaultMat
                                      emmisive::Float32_4)::UInt8
 end
 
-# Importing .gltf or .glb files.
-# gltf animations are not played automatically!
+"Importing .gltf or .glb files. Animations are not played automatically!"
 function add_gltf_asset_and_create_instance(filepath::CStaticString{N})::UUID where N
     @ccall libenv.add_gltf_asset_and_create_instance(filepath::Cstring)::UUID
 end
 
-# Create another instance using the parent gltf asset from this instance.
+"Create another instance using the parent gltf asset from this instance."
 create_gltf_instance_sibling(gltf_instance_id::UUID)::UUID = @ccall libenv.create_gltf_instance_sibling(gltf_instance_id::UUID)::UUID
 
-# Importing .filamesh mesh files.
+"Importing .filamesh mesh files. They can be generated with a tool from Google-Filament"
 function add_filamesh_from_file(path::CStaticString{N})::UUID where N
     @ccall libenv.add_filamesh_from_file(path::Cstring)::UUID
 end
@@ -216,6 +215,7 @@ end
     THIRD_PERSON
 end
 
+"Dont use this function"
 function update_camera_by_window_input_first_person!(camera::UUID, state::Camera_Motion_State, zoom_sensitivity, max_vertical_fov, min_vertical_fov)
     # Zooming
     scroll_delta_effective = get_mouse_wheel_delta() .* zoom_sensitivity * get_last_frame_time_of_window_ms()
@@ -229,6 +229,7 @@ function update_camera_by_window_input_first_person!(camera::UUID, state::Camera
     set_position_and_orientation(camera, state.orbit_center, state.orientation)
 end
 
+"Dont use this function"
 function update_camera_by_window_input_third_person!(camera::UUID, state::Camera_Motion_State, zoom_sensitivity, max_center_distance, min_center_distance)
     # Zooming
     scroll_delta_effective = get_mouse_wheel_delta() .* zoom_sensitivity * get_last_frame_time_of_window_ms()
@@ -244,6 +245,10 @@ function update_camera_by_window_input_third_person!(camera::UUID, state::Camera
     set_position(camera, state.orbit_center - get_camera_forward_vector(camera) .* state.center_distance)
 end
 
+"""
+Use the keyboard and mouse input to the current 'active window' to update the cameras position and orientation.
+To use this you also need to provide a camera 'state' object, which should be maintained between calls.
+"""
 function update_camera_by_window_input!(camera::UUID, state::Camera_Motion_State;
                                                      mode::Camera_Motion_Mode = THIRD_PERSON,
                                                      rotation_sensitivity = 0.001,
@@ -285,7 +290,7 @@ function update_camera_by_window_input!(camera::UUID, state::Camera_Motion_State
 
     # Paning
     if is_mouse_button_down(MOUSE_BUTTON_RIGHT)
-        mouse_delta_effective = get_mouse_delta() .* translation_sensitivity
+        mouse_delta_effective = get_mouse_delta() .* (translation_sensitivity * state.center_distance)
         forward = get_camera_forward_vector(camera)
         up = get_camera_up_vector(camera)
         right = norm_vector(cross_product(up, forward))
@@ -319,10 +324,20 @@ get_joystick_axis_raw(axis_idx)::Int16 = @ccall libenv.get_joystick_axis_raw((ax
 end
 
 # axis_idx - 1 because c++ uses 0 based indexing
+"Internally SDL2 sees joystick axis as Uint8 indices, these indices should be associated to their actual role (Throttle, Yaw, etc.)"
 assign_joystick_axis_idx_to_axis_type(axis_idx, axis_type::Joystick_Axis)::Bool = @ccall libenv.assign_joystick_axis_idx_to_axis_type((axis_idx - 1)::UInt8, axis_type::UInt8)::UInt8
+
+"The 'range' of the raw joystick values is required to map them to the range [-1, 1]"
 set_joystick_axis_range(axis_type::Joystick_Axis, min, max, zero)::Bool = @ccall libenv.set_joystick_axis_range(axis_type::UInt8, min::Int16, max::Int16, zero::Int16)::UInt8
+
+"""
+Returns the mapped value of the joystick. The output range is [-1.0, 1.0].
+Because we map 'zero' exaclty, to ensures that the sticks resting position is actually at zero,
+the output won't be smoove in 0, since we have two slightly different linear interpolations for > 0 and < 0.
+"""
 get_joystick_axis_mapped_value(axis_type::Joystick_Axis)::Float64 = @ccall libenv.get_joystick_axis_mapped_value(axis_type::UInt8)::Float64
 
+"Dont use this directly"
 function find_dominant_joystick_axis_and_its_max_range()::Tuple{UInt8, Int16, Int16} # axis_idx, min value, max value
 
     # create two Int16 vectors
@@ -363,6 +378,12 @@ function find_dominant_joystick_axis_and_its_max_range()::Tuple{UInt8, Int16, In
     return (most_moved_axis, joystick_axes_raw_min[most_moved_axis], joystick_axes_raw_max[most_moved_axis])
 end
 
+"""
+Performs a manual calibration routine and generates code for setting the determined calibration values.
+Can be used in two ways:
+1) Execute once and copy the generated code into your script.
+2) Call with 'eval': `eval(generate_joystick_calibration_code())` to immediately appy the calibration.
+"""
 function generate_joystick_calibration_code()::Expr
 
     if !(is_active_window_set())
@@ -405,6 +426,7 @@ function generate_joystick_calibration_code()::Expr
 
     start_time = time()
     while time() - start_time < 4.0 # collect joystick data for 4 seconds
+        # We are using an Exponential Moving Average to find the 'zero' values.
         α = 0.1
         throttle_raw_zero = α * get_joystick_axis_raw(throttle_axis_idx) + (1 - α) * throttle_raw_zero
         yaw_raw_zero = α * get_joystick_axis_raw(yaw_axis_idx) + (1 - α) * yaw_raw_zero

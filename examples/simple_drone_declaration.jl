@@ -76,6 +76,7 @@ TDS.set_orientation!(drone::Drone, orientation::Quaternion)      = drone.orienta
 TDS.set_angular_velocity!(drone::Drone, angular_velo::Float64_3) = drone.angular_velo = angular_velo
 
 function add_renderables(drone::Drone)
+    Env.add_unlit_material(cstatic"unlit_white") # The default parameters generate a plain white material
     drone.gltf_model_instance = Env.add_gltf_asset_and_create_instance(cstatic"./EnvironmentBackend/assets/TinyDroneEspS3.glb");
 end
 
@@ -86,5 +87,5 @@ function update_renderables(drone::Drone)
     Env.set_position_and_orientation(drone.gltf_model_instance, get_pos(drone), conjugate(get_orientation(drone)))
 
     # this is a retarded method for rendering the trail
-    Env.add_line(prev_drone_pos, get_pos(drone), cstatic"white")
+    Env.add_line(prev_drone_pos, get_pos(drone), cstatic"unlit_white")
 end

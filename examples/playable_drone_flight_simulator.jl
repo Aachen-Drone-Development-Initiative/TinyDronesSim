@@ -8,7 +8,7 @@ env = Env.create_environment()
 camera = Env.create_camera(env)
 camera_motion_state = Env.Camera_Motion_State()
 
-window = Env.create_window(camera, cstatic"drone simulation example", target_fps = 120)
+window = Env.create_window(camera, cstatic"drone simulation example", target_fps = 60)
 
 drone_camera = Env.create_camera(env)
 window_drone_pov = Env.create_window(drone_camera, cstatic"drone POV")
@@ -19,10 +19,6 @@ add_renderables(drone)
 
 try
     Env.add_ibl_skybox(cstatic"./EnvironmentBackend/assets/rogland_sunset_2k.hdr")
-
-    Env.add_unlit_material(cstatic"white")
-    Env.add_lit_material(cstatic"basic_lit")
-
     cool_gltf_asset = Env.add_gltf_asset_and_create_instance(cstatic"./EnvironmentBackend/assets/castle.glb");
 
     # joystick setup
@@ -34,10 +30,8 @@ try
     end
 
     # Call 'Env.generate_joystick_calibration_code()' to generate the below calibration for your controller/joystick.
-    # You can also call 'eval(Env.generate_joystick_calibration_code())' to immediately execute the generated calibration code.
     
-    # generated calibration for my rc-radio
-
+    # GENERATED Calibration for my rc-radio
     if !(Env.is_connected_to_joystick())
         println("Connect to joystick before executing the calibration routine.")
     else
@@ -50,7 +44,7 @@ try
         Env.assign_joystick_axis_idx_to_axis_type(0x01, Env.JOYSTICK_ROLL)
         Env.set_joystick_axis_range(Env.JOYSTICK_ROLL, -19325, 2184, -3529)
     end
-    # end generated calibration
+    # END GENERATED calibration
 
     run_simulation = false
 
@@ -71,11 +65,12 @@ try
                 set_angular_velocity!(drone, Float64_3(0,0,0))
             end
 
-            throttle = (Env.get_joystick_axis_mapped_value(Env.JOYSTICK_THROTTLE) + 1) * 100
-            yaw = Env.get_joystick_axis_mapped_value(Env.JOYSTICK_YAW) * 100
-            pitch = Env.get_joystick_axis_mapped_value(Env.JOYSTICK_PITCH) * 100
-            roll = Env.get_joystick_axis_mapped_value(Env.JOYSTICK_ROLL) * 100
-            
+            throttle = (Env.get_joystick_axis_mapped_value(Env.JOYSTICK_THROTTLE) + 1.0) * 100.0
+            yaw = Env.get_joystick_axis_mapped_value(Env.JOYSTICK_YAW) * 100.0
+            pitch = Env.get_joystick_axis_mapped_value(Env.JOYSTICK_PITCH) * 100.0
+            roll = Env.get_joystick_axis_mapped_value(Env.JOYSTICK_ROLL) * 100.0
+
+            # Very rudimentary mapping between drone and joystick
             drone.thrusters[1].angular_velo = -abs(throttle + pitch - roll - yaw)
             drone.thrusters[2].angular_velo = abs(throttle - pitch - roll + yaw)
             drone.thrusters[3].angular_velo = abs(throttle + pitch + roll + yaw)
@@ -92,24 +87,21 @@ try
             
             update_renderables(drone)
             
-            camera_motion_state.orbit_center = get_pos(drone)
-            Env.update_camera_by_window_input!(camera, camera_motion_state, mode=Env.THIRD_PERSON)
+            camera_motion_state.orbit_center = get_pos(drone) # center the camera around the drone
+            Env.update_camera_by_window_input!(camera, camera_motion_state, mode=Env.THIRD_PERSON) # update the camera by mouse and keyboard input
             
             Env.update_window()
-        else
-            window_closed = true
         end
 
         if Env.exists(window_drone_pov)
             Env.set_active_window(window_drone_pov)
-            
+
+            # "attach" the drone_camera to the drone
             Env.set_position(drone_camera, get_pos(drone))
             # FIXME: The orientation is for some reason not correct, using the 'conjugate' "fixes" things, but this is obviously not ideal
             Env.set_orientation(drone_camera, conjugate(get_orientation(drone)))
             
             Env.update_window()
-        else
-            window_drone_pov_closed = true
         end
     end
     

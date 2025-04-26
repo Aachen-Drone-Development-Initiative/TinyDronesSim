@@ -56,10 +56,10 @@ const gravitational_acceleration = 9.81 # [m/s^2]
     pos::Float64_3 = Float64_3(0, 0, 0)
 end
 
-TDS.set_pos!(resultant::Resultant3D, pos::Float64_3) = resultant.pos = pos
+TDS.set_pos!(resultant::Resultant3D, pos) = resultant.pos = pos
 
-# Combine resutants and move them to 'pos'
-function combine_resultants(pos::Float64_3, resultants::Resultant3D...)::Resultant3D
+"Combine resutants and move them to 'pos'"
+function combine_resultants(pos, resultants::Resultant3D...)::Resultant3D
     resultant = Resultant3D(pos=pos)
     for i in 1:length(resultants)
         resultant.force += resultants[i].force
@@ -76,13 +76,15 @@ end
 
 ### Mechanics Functionality ###
 
-# Transform a position vector which is relative to 'obj', to the same coordinate-space 'obj' is relative to.
-function relative_to_absolute_pos(obj, relative_pos::Float64_3)
+"Transform a position vector which is relative to 'obj', to the same coordinate-space 'obj' is relative to."
+function relative_to_absolute_pos(obj, relative_pos)
     return get_pos(obj) + rotate_vector(relative_pos, get_orientation(obj))
 end
 
-# Update the position and orientation of an object, based on its 'mechanical reaction'
-# using the simple euler integration method (https://en.wikipedia.org/wiki/Euler_method)
+"""
+Update the position and orientation of an object, based on its 'mechanical reaction'
+using the simple euler integration method (https://en.wikipedia.org/wiki/Euler_method)
+"""
 function integrate_physics_euler!(obj, dt::Float64, epsilon::Float64)
     resultant = get_mechanical_reaction(obj)
 
