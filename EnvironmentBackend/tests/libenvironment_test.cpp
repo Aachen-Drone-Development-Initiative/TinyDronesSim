@@ -1,35 +1,35 @@
-#include "../environments.h"
+#include "../environments.hpp"
 #include <iostream>
 
 int main()
 {
-    UUID env = create_environment();
-    UUID camera = create_camera(env);
-    UUID second_camera = create_camera(env);
+    Environment_ID env = create_environment();
+    Camera_ID camera = create_camera(env);
+    Camera_ID second_camera = create_camera(env);
     
-    UUID window = create_window(camera, 60, "environment test");
-    UUID second_window = create_window(second_camera, 60, "environment test second window");
+    Window_ID window = create_window(camera, 60, "environment test");
+    Window_ID second_window = create_window(second_camera, 60, "environment test second window");
 
     // "/home/yuzeni/projekte/TinyDronesSim/EnvironmentBackend/assets/FlightHelmet/FlightHelmet.gltf"
 
-    UUID suzanne = add_filamesh_from_file("./assets/suzanne.filamesh");
+    Filament_Entity_ID suzanne = add_filamesh_from_file("./assets/suzanne.filamesh");
     set_position_and_orientation(suzanne, {1, 1, 1}, quaternion_ccw_90_y());
     
-    UUID gltf_instance = add_gltf_asset_and_create_instance("./assets/TinyDroneEspS3.glb");
+    glTF_Instance_ID gltf_instance = add_gltf_asset_and_create_instance("./assets/TinyDroneEspS3.glb");
 
-    set_position(gltf_instance, {-1, -2, -3});
+    set_position(get_gltf_instance_filament_entity(gltf_instance), {-1, -2, -3});
     
     [[maybe_unused]] UUID gltf_instance_sib1 = create_gltf_instance_sibling(gltf_instance);
 
     add_lit_material("base_lit");
     
-    [[maybe_unused]] UUID plane = add_plane({1, 1, 1}, 100, 100, "base_lit");
+    [[maybe_unused]] Filament_Entity_ID plane = add_plane({1, 1, 1}, 100, 100, "base_lit");
     
     add_ibl_skybox("./assets/rogland_sunset_2k.hdr");
 
-    while(exists(window) || exists(second_window))
+    while(window_exists(window) || window_exists(second_window))
     {
-        if (exists(window)) {
+        if (window_exists(window)) {
             set_active_window(window);
             
             if (is_key_pressed(SDL_SCANCODE_SPACE)) {
@@ -41,7 +41,7 @@ int main()
             update_window();
         }
 
-        if (exists(second_window)) {
+        if (window_exists(second_window)) {
             set_active_window(second_window);
             update_window();
         }

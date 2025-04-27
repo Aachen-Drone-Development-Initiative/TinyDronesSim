@@ -1,4 +1,4 @@
-#include "../environments.h"
+#include "../environments.hpp"
 #include <SDL2/SDL_error.h>
 #include <cstddef>
 #include <cstdint>
@@ -14,6 +14,7 @@
 #include <filament/SwapChain.h>
 
 #include <cstring>
+#include <vector>
 
 #include <SDL.h>
 #include <SDL_events.h>
@@ -61,10 +62,10 @@ static void* get_native_window(SDL_Window* sdlWindow) {
     return nullptr;
 }
 
-UUID create_window(UUID camera_id, int target_fps, const char* name)
+ENV_API Window_ID create_window(Camera_ID camera_id, int target_fps, const char* name)
 {
-    Camera* camera = g_objm.get_as_camera(camera_id);
-    if (!camera) return ENV_INVALID_UUID;
+    Camera* camera = g_objm.get_object(camera_id);
+    if (!camera) return {ENV_INVALID_UUID};
 
     Window* window = new Window;
     window->camera = camera;
@@ -85,14 +86,12 @@ UUID create_window(UUID camera_id, int target_fps, const char* name)
                                           sdl_window_flags);
     window->sdl_window_id = SDL_GetWindowID(window->sdl_window);
     
-    window->frame = __create_frame(window->camera->env,
-                                   window->camera->env->engine->createSwapChain(
-                                       get_native_window(window->sdl_window)));
+    window->frame = create_frame(window->camera->env, window->camera->env->engine->createSwapChain(get_native_window(window->sdl_window)));
 
-    Env_Object obj = g_objm.add_object(window);
-    g_objm.set_active_window(window, obj.id);
+    Window_ID window_id = g_objm.add_object(window);
+    g_objm.set_active_window(window_id);
     
-    return obj.id;
+    return window_id;
 }
 
 Window::~Window()
@@ -101,11 +100,9 @@ Window::~Window()
     SDL_DestroyWindow(sdl_window);
 }
 
-static bool window_process_event(UUID window_id, SDL_Event event, bool& destroy_this_window)
+static bool window_process_event(Window* window, SDL_Event event, bool& destroy_this_window)
 {
     destroy_this_window = false;
-    Window* window = g_objm.get_as_window(window_id);
-    if (!window) return false;
 
     switch (event.type) {
     case SDL_WINDOWEVENT:
@@ -197,9 +194,9 @@ static bool window_process_event(UUID window_id, SDL_Event event, bool& destroy_
     return true;
 }
 
-bool update_window()
+ENV_API bool update_window()
 {
-    UUID window_id = g_objm.get_active_window_id();
+    Window_ID window_id = g_objm.get_active_window_id();
     Window* window = g_objm.get_active_window();
     if (!window) return false;
     
@@ -227,18 +224,17 @@ bool update_window()
     // Consuming SDL events
 
     SDL_Event event;
-
-    const std::vector<UUID>& all_window_ids = g_objm.get_all_window_ids_vector();
-    std::vector<UUID> windows_to_destroy;
+    const tsl::robin_map<Window_ID, Window*, UUID_Hasher>& windows = g_objm.get_windows();
+    std::vector<Window_ID> windows_to_destroy;
 
     while (SDL_PollEvent(&event) != 0)
     {
         // Every window gets the chance to process the event.
-        for (size_t i = 0; i < all_window_ids.size(); ++i) {
+        for (auto itr = windows.begin(); itr != windows.end(); itr++) {
             bool destroy_this_window = false;
-            window_process_event(all_window_ids[i], event, destroy_this_window);
+            window_process_event(itr.value(), event, destroy_this_window);
             if (destroy_this_window) {
-                windows_to_destroy.push_back(all_window_ids[i]);
+                windows_to_destroy.push_back(itr.key());
             }
         }
     }
@@ -257,12 +253,12 @@ bool update_window()
         window->last_frame_time_ms = target_time_delta_ms;
     }
 
-    for (UUID destroy_window_id : windows_to_destroy) {
+    for (Window_ID destroy_window_id : windows_to_destroy) {
         g_objm.destroy_object(destroy_window_id);
     }
 
     // Check if now all windows are deleted and, if that is the case, quit SDL.
-    if (g_objm.get_all_window_ids_vector().empty()) {
+    if (g_objm.get_windows().empty()) {
         SDL_Quit();
         return true;
     }
@@ -270,7 +266,7 @@ bool update_window()
     return true;
 }
 
-double get_last_frame_time_of_window_ms()
+ENV_API double get_last_frame_time_of_window_ms()
 {
     Window* window = g_objm.get_active_window();
     if (!window) return 0.0;
@@ -278,7 +274,7 @@ double get_last_frame_time_of_window_ms()
     return window->last_frame_time_ms;
 }
 
-bool focus_input_to_window()
+ENV_API bool focus_input_to_window()
 {
     Window* window = g_objm.get_active_window();
     if (!window) return false;
@@ -286,7 +282,7 @@ bool focus_input_to_window()
     return SDL_SetWindowInputFocus(window->sdl_window) == 0;
 }
 
-bool is_key_down(SDL_Scancode key)
+ENV_API bool is_key_down(SDL_Scancode key)
 {
     Window* window = g_objm.get_active_window();
     if (!window) return false;
@@ -294,7 +290,7 @@ bool is_key_down(SDL_Scancode key)
     return window->input.key_event_this_frame[key] & KEY_EVENT_DOWN;
 }
 
-bool is_key_pressed(SDL_Scancode key)
+ENV_API bool is_key_pressed(SDL_Scancode key)
 {
     Window* window = g_objm.get_active_window();
     if (!window) return false;
@@ -303,7 +299,7 @@ bool is_key_pressed(SDL_Scancode key)
         && !(window->input.key_event_prev_frame[key] & KEY_EVENT_DOWN);
 }
 
-bool is_key_up(SDL_Scancode key)
+ENV_API bool is_key_up(SDL_Scancode key)
 {
     Window* window = g_objm.get_active_window();
     if (!window) return false;
@@ -311,7 +307,7 @@ bool is_key_up(SDL_Scancode key)
     return !(window->input.key_event_this_frame[key] & KEY_EVENT_DOWN);
 }
 
-bool is_key_released(SDL_Scancode key)
+ENV_API bool is_key_released(SDL_Scancode key)
 {
     Window* window = g_objm.get_active_window();
     if (!window) return false;
@@ -320,7 +316,7 @@ bool is_key_released(SDL_Scancode key)
         && (window->input.key_event_prev_frame[key] & KEY_EVENT_DOWN);
 }
 
-bool is_mouse_button_down(Mouse_Button button)
+ENV_API bool is_mouse_button_down(Mouse_Button button)
 {
     Window* window = g_objm.get_active_window();
     if (!window) return false;
@@ -328,7 +324,7 @@ bool is_mouse_button_down(Mouse_Button button)
     return window->input.mouse_event_this_frame[button];
 }
 
-bool is_mouse_button_pressed(Mouse_Button button)
+ENV_API bool is_mouse_button_pressed(Mouse_Button button)
 {
     Window* window = g_objm.get_active_window();
     if (!window) return false;
@@ -337,7 +333,7 @@ bool is_mouse_button_pressed(Mouse_Button button)
         && !(window->input.mouse_event_prev_frame[button]);
 }
 
-bool is_mouse_button_up(Mouse_Button button)
+ENV_API bool is_mouse_button_up(Mouse_Button button)
 {
     Window* window = g_objm.get_active_window();
     if (!window) return false;
@@ -345,7 +341,7 @@ bool is_mouse_button_up(Mouse_Button button)
     return !window->input.mouse_event_this_frame[button];
 }
 
-bool is_mouse_button_released(Mouse_Button button)
+ENV_API bool is_mouse_button_released(Mouse_Button button)
 {
     Window* window = g_objm.get_active_window();
     if (!window) return false;
@@ -354,7 +350,7 @@ bool is_mouse_button_released(Mouse_Button button)
         && window->input.mouse_event_prev_frame[button];    
 }
     
-int2 get_mouse_pos()
+ENV_API int2 get_mouse_pos()
 {
     Window* window = g_objm.get_active_window();
     if (!window) return int2{};
@@ -362,7 +358,7 @@ int2 get_mouse_pos()
     return {window->input.mouse_x, window->input.mouse_y};
 }
 
-int2 get_mouse_delta()
+ENV_API int2 get_mouse_delta()
 {
     Window* window = g_objm.get_active_window();
     if (!window) return int2{};
@@ -370,7 +366,7 @@ int2 get_mouse_delta()
     return {window->input.mouse_x_delta, window->input.mouse_y_delta};
 }
 
-int2 get_mouse_wheel_delta()
+ENV_API int2 get_mouse_wheel_delta()
 {
     Window* window = g_objm.get_active_window();
     if (!window) return int2{};
@@ -378,7 +374,7 @@ int2 get_mouse_wheel_delta()
     return {window->input.mouse_wheel_x_delta, window->input.mouse_wheel_y_delta};
 }
 
-bool connect_to_joystick()
+ENV_API bool connect_to_joystick()
 {
     Window* window = g_objm.get_active_window();
     if (!window) return false;
@@ -397,7 +393,7 @@ bool connect_to_joystick()
     return true;
 }
 
-bool is_connected_to_joystick()
+ENV_API bool is_connected_to_joystick()
 {
     Window* window = g_objm.get_active_window();
     if (!window) return false;
@@ -405,7 +401,7 @@ bool is_connected_to_joystick()
     return window->joystick != nullptr;
 }
 
-bool disconnect_from_joystick()
+ENV_API bool disconnect_from_joystick()
 {
     Window* window = g_objm.get_active_window();
     if (!window) return false;
@@ -415,7 +411,7 @@ bool disconnect_from_joystick()
     return true;
 }
 
-int16_t get_joystick_axis_raw(uint8_t axis)
+ENV_API int16_t get_joystick_axis_raw(uint8_t axis)
 {
     if (axis >= ENV_MAX_JOYSTICK_AXES) {
         env_soft_error("Unable to set joystick range because the axis index '%d' is greater than the expected maximum '%d'", axis, ENV_MAX_JOYSTICK_AXES);
@@ -428,7 +424,7 @@ int16_t get_joystick_axis_raw(uint8_t axis)
     return window->input.joystick_axes_raw[axis];
 }
 
-bool assign_joystick_axis_idx_to_axis_type(uint8_t axis_idx, Joystick_Axis axis_type)
+ENV_API bool assign_joystick_axis_idx_to_axis_type(uint8_t axis_idx, Joystick_Axis axis_type)
 {
     Window* window = g_objm.get_active_window();
     if (!window) return false;
@@ -437,7 +433,7 @@ bool assign_joystick_axis_idx_to_axis_type(uint8_t axis_idx, Joystick_Axis axis_
     return true;
 }
 
-bool set_joystick_axis_range(Joystick_Axis axis_type, int16_t min, int16_t max, int16_t zero)
+ENV_API bool set_joystick_axis_range(Joystick_Axis axis_type, int16_t min, int16_t zero, int16_t max)
 {
     Window* window = g_objm.get_active_window();
     if (!window) return false;
@@ -458,7 +454,7 @@ static double range_map(double x, double in_min, double in_max, double out_min, 
 // Including zero ensures that the sticks resting position is actually at zero.
 // On the downside, the output won't be smove in 0, because we have two slightly
 // different linear interpolations for > 0 and < 0.
-double get_joystick_axis_mapped_value(Joystick_Axis axis_type)
+ENV_API double get_joystick_axis_mapped_value(Joystick_Axis axis_type)
 {
     Window* window = g_objm.get_active_window();
     if (!window) return 0.0;

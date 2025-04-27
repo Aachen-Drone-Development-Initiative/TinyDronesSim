@@ -1,4 +1,4 @@
-#include "../environments.h"
+#include "../environments.hpp"
 #include <camera.hpp>
 
 #include <environment.hpp>
@@ -16,16 +16,16 @@
 
 namespace futils = utils;
 
-UUID create_camera(UUID env_id, double3 pos, double3 lookat, double3 up, double vertical_fov, double near_plane, double far_plane, uint32_t width, uint32_t height)
+Camera_ID create_camera(Environment_ID env_id, double3 pos, double3 lookat, double3 up, double vertical_fov, double near_plane, double far_plane, uint32_t width, uint32_t height)
 {
-    Environment* env = g_objm.get_as_environment(env_id);
-    if (!env) return ENV_INVALID_UUID;
+    Environment* env = g_objm.get_object(env_id);
+    if (!env) return {ENV_INVALID_UUID};
 
     Camera* camera = new Camera;
     camera->env = env;
     futils::EntityManager& entity_m = futils::EntityManager::get();
-    camera->camera_fentity = entity_m.create();
-    camera->fcamera = env->engine->createCamera(camera->camera_fentity);
+    camera->camera_fentity = g_objm.add_object({entity_m.create(), env});
+    camera->fcamera = env->engine->createCamera(g_objm.get_object(camera->camera_fentity).entity);
     camera->up = up;
     camera->fcamera->lookAt(d3_to_fd3(pos), d3_to_fd3(lookat), d3_to_fd3(up));
     camera->vertical_fov = vertical_fov;
@@ -42,13 +42,12 @@ UUID create_camera(UUID env_id, double3 pos, double3 lookat, double3 up, double 
 
     camera->renderer = env->engine->createRenderer();
 
-    return g_objm.add_object(camera).id;
+    return g_objm.add_object(camera);
 }
 
 Camera::~Camera()
 {
     fmt::Engine* engine = env->engine;
-    engine->destroy(camera_fentity);
     engine->destroy(view);
 
     // FIXME: WE SHOULD DESTROY THE RENDERER, BUT FILAMENT CRASHES HERE SOMETIMES
@@ -59,9 +58,9 @@ Camera::~Camera()
 uint32_t get_camera_image_width(Camera* camera) { return camera->view->getViewport().width; }
 uint32_t get_camera_image_height(Camera* camera) { return camera->view->getViewport().height; }
 
-bool set_camera_fov_vertical(UUID camera_id, double vertical_fov)
+bool set_camera_fov_vertical(Camera_ID camera_id, double vertical_fov)
 {
-    Camera* camera = g_objm.get_as_camera(camera_id);
+    Camera* camera = g_objm.get_object(camera_id);
     if (!camera) return false;
     
     camera->vertical_fov = vertical_fov;
@@ -72,23 +71,23 @@ bool set_camera_fov_vertical(UUID camera_id, double vertical_fov)
     return true;
 }
 
-double get_camera_fov_vertical(UUID camera_id)
+double get_camera_fov_vertical(Camera_ID camera_id)
 {
-    Camera* camera = g_objm.get_as_camera(camera_id);
+    Camera* camera = g_objm.get_object(camera_id);
     if (!camera) return 0;
     return camera->vertical_fov;
 }
 
-double3 get_camera_up_vector(UUID camera_id)
+double3 get_camera_up_vector(Camera_ID camera_id)
 {
-    Camera* camera = g_objm.get_as_camera(camera_id);
+    Camera* camera = g_objm.get_object(camera_id);
     if (!camera) return double3{};
     return camera->up;
 }
 
-double3 get_camera_forward_vector(UUID camera_id)
+double3 get_camera_forward_vector(Camera_ID camera_id)
 {
-    Camera* camera = g_objm.get_as_camera(camera_id);
+    Camera* camera = g_objm.get_object(camera_id);
     if (!camera) return double3{};
     return fd3_to_d3(camera->fcamera->getForwardVector());
 }
@@ -109,4 +108,12 @@ double update_image_time(Camera* camera)
     double prev_time = camera->image_time_ms;
     camera->image_time_ms = double(SDL_GetPerformanceCounter()) / sdl_ticks_per_ms;
     return prev_time;
+}
+
+ENV_API Filament_Entity_ID get_camera_filament_entity(Camera_ID camera_id)
+{
+    Camera* camera = g_objm.get_object(camera_id);
+    if (!camera) return {};
+    
+    return camera->camera_fentity;
 }

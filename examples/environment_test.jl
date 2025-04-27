@@ -11,7 +11,7 @@ Env.add_filamesh_from_file(cstatic"./EnvironmentBackend/assets/suzanne.filamesh"
 
 gltf_instance = Env.add_gltf_asset_and_create_instance(cstatic"./EnvironmentBackend/assets/castle.glb");
 gltf_instance_sibling = Env.create_gltf_instance_sibling(gltf_instance)
-Env.set_position(gltf_instance, Float64_3(50, 0, 0))
+Env.set_position(Env.get_filament_entity(gltf_instance), Float64_3(50, 0, 0))
 
 Env.add_ibl_skybox(cstatic"./EnvironmentBackend/assets/rogland_sunset_2k.hdr")
 

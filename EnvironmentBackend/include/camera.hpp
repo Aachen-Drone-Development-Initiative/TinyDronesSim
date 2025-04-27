@@ -1,5 +1,5 @@
+#include "object_manager.hpp"
 #include <math.hpp>
-#include <utils/Entity.h>
 
 namespace filament {
     class View;
@@ -8,7 +8,6 @@ namespace filament {
 }
 
 namespace fmt = filament;
-namespace futils = utils;
 
 struct Environment;
 
@@ -16,7 +15,7 @@ struct Camera {
     ~Camera();
     
     fmt::Camera* fcamera = nullptr;
-    futils::Entity camera_fentity;
+    Filament_Entity_ID camera_fentity;
     fmt::View* view = nullptr;
     fmt::Renderer* renderer = nullptr;
     

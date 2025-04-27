@@ -1,6 +1,8 @@
-#include "../environments.h"
-#include <cstddef>
 #include <object_manager.hpp>
+
+#include "../environments.hpp"
+#include "filament_object_wrappers.hpp"
+#include <cstddef>
 
 #include <environment.hpp>
 #include <frame.hpp>
@@ -13,206 +15,255 @@
 // This global variable owns and manages all the objects of the library,
 Object_Manager g_objm;
 
-static bool is_destroyable(Env_Object_Type type)
+Environment_ID Object_Manager::add_object(Environment* env)
 {
-    return !(type == ENVO_FILAMENT_ENTITY || type == ENVO_FILAMENT_GLTF_INSTANCE);
+    UUID id = g_objm.create_id();
+    auto ins = m_environments.insert({{id}, env});
+    assert(ins.second);
+    return {id};
 }
 
-futils::Entity Env_Object::get_representing_filament_entity()
+Frame_ID Object_Manager::add_object(Frame* frame)
 {
-    switch(type) {
-    case ENVO_CAMERA:
-        return camera->camera_fentity;
-    case ENVO_FILAMENT_ENTITY:
-        return fentity;
-    case ENVO_FILAMENT_GLTF_INSTANCE:
-        return gltf_instance->getRoot();
-    default:
-        return futils::Entity{};
+    UUID id = g_objm.create_id();
+    auto ins = m_frames.insert({{id}, frame});
+    assert(ins.second);
+    return {id};
+}
+
+Camera_ID Object_Manager::add_object(Camera* camera)
+{
+    UUID id = g_objm.create_id();
+    auto ins = m_cameras.insert({{id}, camera});
+    assert(ins.second);
+    return {id};
+}
+
+Window_ID Object_Manager::add_object(Window* window)
+{
+    UUID id = g_objm.create_id();
+    auto ins = m_windows.insert({{id}, window});
+    assert(ins.second);
+    return {id};
+}
+
+Filament_Entity_ID Object_Manager::add_object(Filament_Entity filament_entity)
+{
+    UUID id = g_objm.create_id();
+    auto ins = m_filament_entities.insert({{id}, filament_entity});
+    assert(ins.second);
+    return {id};
+}
+
+glTF_Instance_ID Object_Manager::add_object(glTF_Instance gltf_instance)
+{
+    UUID id = g_objm.create_id();
+    auto ins = m_gltf_instances.insert({{id}, gltf_instance});
+    assert(ins.second);
+    return {id};
+}
+
+Environment* Object_Manager::get_object(Environment_ID id)
+{
+    auto itr = m_environments.find(id);
+    if (itr == m_environments.end()) {
+        env_soft_error("Couldn't find the Environment with id: %d", id.id);
+        return nullptr;
     }
+    return itr.value();
 }
 
-Env_Object Object_Manager::add_object() { return add_object(Env_Object {}); }
-
-Env_Object Object_Manager::add_object(Environment* env)
+Frame* Object_Manager::get_object(Frame_ID id)
 {
-    return add_object({.id=g_objm.create_id(), .type=ENVO_ENVIRONMENT, .env=env, .associated_env=env});
-}
-
-Env_Object Object_Manager::add_object(Frame* frame)
-{
-    return add_object({.id=g_objm.create_id(), .type=ENVO_FRAME, .frame=frame, .associated_env=frame->env});
-}
-
-Env_Object Object_Manager::add_object(Camera* camera)
-{
-    return add_object({ .id = g_objm.create_id(), .type = ENVO_CAMERA, .camera = camera, .associated_env = camera->env });
-}
-
-Env_Object Object_Manager::add_object(Window* window)
-{
-    Env_Object obj = add_object({ .id = g_objm.create_id(), .type = ENVO_WINDOW, .window = window, .associated_env = window->camera->env });
-    m_all_window_ids.push_back(obj.id);
-    return obj;
-}
-
-Env_Object Object_Manager::add_object(futils::Entity fentity, Environment* associated_env)
-{
-    return add_object({ .id = g_objm.create_id(), .type = ENVO_FILAMENT_ENTITY, .fentity = fentity, .associated_env = associated_env });
-}
-
-Env_Object Object_Manager::add_object(fgltfio::FilamentInstance* finstance, Environment* associated_env)
-{
-    return add_object({.id=g_objm.create_id(), .type=ENVO_FILAMENT_GLTF_INSTANCE, .gltf_instance=finstance, .associated_env=associated_env});
-}
-
-Env_Object Object_Manager::add_object(Env_Object obj)
-{
-    auto ins = m_objects.insert({obj.id, obj});
-    if (!ins.second) {
-        env_soft_error("An object with the same unique id '%s' already exists", obj.id);
-        return Env_Object{};
+    auto itr = m_frames.find(id);
+    if (itr == m_frames.end()) {
+        env_soft_error("Couldn't find the Frame with id: %d", id.id);
+        return nullptr;
     }
-    return obj;
+    return itr.value();
 }
 
-Env_Object Object_Manager::get_object(UUID obj_id)
+Camera* Object_Manager::get_object(Camera_ID id)
 {
-    auto itr = m_objects.find(obj_id);
-    if (itr == m_objects.end()) {
-        env_soft_error("The object with id '%d' doesn't exist", obj_id);
-        return Env_Object{};
+    auto itr = m_cameras.find(id);
+    if (itr == m_cameras.end()) {
+        env_soft_error("Couldn't find the Camera with id: %d", id.id);
+        return nullptr;
     }
-
-    return itr->second;
+    return itr.value();
 }
 
-bool Object_Manager::destroy_object(Env_Object obj)
+Window* Object_Manager::get_object(Window_ID id)
 {
-    switch(obj.type) {
-    case ENVO_ENVIRONMENT:
-        if (obj.id == active_env_id) {
-            active_env_id = ENV_INVALID_UUID;
-            active_env = nullptr;
-        }
-        delete obj.env;
-        break;
-    case ENVO_FRAME:
-        delete obj.frame;
-        break;
-    case ENVO_CAMERA:
-        delete obj.camera;
-        break;
-    case ENVO_WINDOW:
-        if (obj.id == active_window_id) {
-            active_window_id = ENV_INVALID_UUID;
-            active_window = nullptr;
-        }
-        // also remove window from the window-exclusive vector
-        for (size_t i = 0; i < m_all_window_ids.size(); ++i) {
-            if (m_all_window_ids[i] == obj.id) {
-                m_all_window_ids.erase(m_all_window_ids.cbegin() + i);
-            }
-        }
-        delete obj.window;
-        break;
-    case ENVO_FILAMENT_ENTITY:
-        env_soft_error("Cannot destroy '%s', this will be done automatically.",
-                       env_object_type_name[ENVO_FILAMENT_ENTITY]);
-        return false;
-    case ENVO_FILAMENT_GLTF_INSTANCE:
-        env_soft_error("Cannot destroy '%s', this will be done automatically.",
-                       env_object_type_name[ENVO_FILAMENT_GLTF_INSTANCE]);
-        return false;
-    default:
-        env_soft_error("Cannot destroy '%s' Object.", env_object_type_name[obj.type]);
-        return false;
-    // case ENVO_MESH:
-        // delete mesh;
-        // break;
+    auto itr = m_windows.find(id);
+    if (itr == m_windows.end()) {
+        env_soft_error("Couldn't find the Window with id: %d", id.id);
+        return nullptr;
     }
-    obj.handle = 0;
-    
+    return itr.value();
+}
+
+Filament_Entity Object_Manager::get_object(Filament_Entity_ID id) {
+    auto itr = m_filament_entities.find(id);
+    if (itr == m_filament_entities.end()) {
+        env_soft_error("Couldn't find the Filament-Entity with id: %d", id.id);
+        return {};
+    }
+    return itr.value();
+}
+
+glTF_Instance Object_Manager::get_object(glTF_Instance_ID id)
+{
+    auto itr = m_gltf_instances.find(id);
+    if (itr == m_gltf_instances.end()) {
+        env_soft_error("Couldn't find the glTF-Instance with id: %d", id.id);
+        return {};
+    }
+    return itr.value();
+}
+
+bool Object_Manager::destroy_object(Environment_ID id)
+{
+    if (id == active_env_id) {
+        active_env_id = {ENV_INVALID_UUID};
+        active_env = nullptr;
+    }
+
+    Environment* env = get_object(id);
+    if (!env) return false;
+    delete env;
+    m_environments.erase(id);
     return true;
 }
 
-bool Object_Manager::destroy_object(UUID obj_id)
+bool Object_Manager::destroy_object(Frame_ID id)
 {
-    auto itr = m_objects.find(obj_id);
-    if (itr == m_objects.end()) {
-        env_soft_error("The object with id '%d' doesn't exist", obj_id);
-        return false;
+    Frame* frame = get_object(id);
+    if (!frame) return false;
+    delete frame;
+    m_frames.erase(id);
+    return true;
+}
+
+bool Object_Manager::destroy_object(Camera_ID id)
+{
+    Camera* camera = get_object(id);
+    if (!camera) return false;
+    delete camera;
+    m_cameras.erase(id);
+    return true;
+}
+
+bool Object_Manager::destroy_object(Window_ID id)
+{
+    if (id == active_window_id) {
+        active_window_id = {ENV_INVALID_UUID};
+        active_window = nullptr;
     }
 
-    Env_Object obj = itr->second;
-    
-    destroy_object(obj);
-
-    m_objects.erase(itr);
-    
+    Window* window = get_object(id);
+    if (!window) return false;
+    delete window;
+    m_windows.erase(id);
     return true;
 }
 
 bool Object_Manager::destroy_all_objects()
 {
-    // Destroy all objects in reverse order of creation,
-    // this is possible because the ids are 'sorted by creation' (next_id = prev_id + 1).
+    // Destroy all objects in reverse order of creation.
+    // This is possible because the ids are 'sorted by creation' (next_id = prev_id + 1).
     UUID current_max_id = get_current_max_id();
-    for (UUID id = current_max_id; id > m_guaranteed_invalid_ids_between_here_and_0; --id) {
-        auto itr = m_objects.find(id);
-        if (itr != m_objects.end()) {
-            Env_Object obj = itr->second;
-            if (is_destroyable(obj.type)) {
-                destroy_object(obj);
-            }                
-        }
+    for (UUID uuid = current_max_id; uuid.id > m_guaranteed_invalid_ids_between_here_and_0.id; --uuid.id)
+    {
+        if (m_environments.find({uuid}) != m_environments.end()) { destroy_object(Environment_ID{uuid}); continue; }
+        if (m_frames.find({uuid}) != m_frames.end())             { destroy_object(Frame_ID{uuid}); continue; }
+        if (m_cameras.find({uuid}) != m_cameras.end())           { destroy_object(Camera_ID{uuid}); continue; }
+        if (m_windows.find({uuid}) != m_windows.end())           { destroy_object(Window_ID{uuid}); continue; }
     }
 
-    m_objects.clear(); // empty the map
-    // since these ids got deleted they can't be used again.
+    m_environments.clear();
+    m_frames.clear();
+    m_cameras.clear();
+    m_windows.clear();
+    m_filament_entities.clear();
+    m_gltf_instances.clear();
+    
+    // Since these ids got deleted they can't be used again. Therefore all previous ids guaranteed to be not in use.
     m_guaranteed_invalid_ids_between_here_and_0 = current_max_id;
     return true;
 }
 
-bool Object_Manager::object_exists(UUID obj_id)
+bool Object_Manager::set_active_environment(Environment_ID id)
 {
-    return m_objects.find(obj_id) != m_objects.end();
-}
-
-bool set_active_environment(UUID env_id)
-{
-    Environment* env = g_objm.get_as_environment(env_id);
+    Environment* env = g_objm.get_object(id);
     if (!env) return false;
-
-    g_objm.set_active_environment(env, env_id);
+    
+    active_env = env;
+    active_env_id = id;
     return true;
 }
-
-bool set_active_window(UUID window_id)
+    
+bool Object_Manager::set_active_window(Window_ID id)
 {
-    Window* window = g_objm.get_as_window(window_id);
+    Window* window = g_objm.get_object(id);
     if (!window) return false;
 
-    g_objm.set_active_window(window, window_id);
+    active_window = window;
+    active_window_id = id;
     return true;
 }
 
-bool is_active_window_set()
+Environment* Object_Manager::get_active_environment()
 {
-    return g_objm.is_active_window_set();
+    if (!active_env) {
+        env_soft_error("No active environment has been set.");
+    }
+    return active_env;
 }
 
-bool destroy(UUID obj_id)
+Environment_ID Object_Manager::get_active_environment_id()
 {
-    return g_objm.destroy_object(obj_id);
+    if (active_env_id == ENV_INVALID_UUID) {
+        env_soft_error("No active environment has been set.");
+    }
+    return active_env_id;
+}
+    
+Window* Object_Manager::get_active_window()
+{
+    if (!active_window) {
+        env_soft_error("No active window has been set.");
+    }
+    return active_window;
 }
 
-bool destroy_everything()
+Window_ID Object_Manager::get_active_window_id()
 {
-    return g_objm.destroy_all_objects();
+    if (active_window_id == ENV_INVALID_UUID) {
+        env_soft_error("No active window has been set.");
+    }
+    return active_window_id;
 }
 
-bool exists(UUID obj_id)
-{
-    return g_objm.object_exists(obj_id);
-}
+/*
+ * ENV_API function implementations
+ */
+
+ENV_API bool set_active_environment(Environment_ID id) { return g_objm.set_active_environment(id); }
+ENV_API bool set_active_window(Window_ID id)           { return g_objm.set_active_window(id); }
+
+ENV_API bool environment_exists(Environment_ID id)         { return g_objm.object_exists(id); }
+ENV_API bool frame_exists(Frame_ID id)                     { return g_objm.object_exists(id); }
+ENV_API bool camera_exists(Camera_ID id)                   { return g_objm.object_exists(id); }
+ENV_API bool window_exists(Window_ID id)                   { return g_objm.object_exists(id); }
+ENV_API bool filament_entity_exists(Filament_Entity_ID id) { return g_objm.object_exists(id); }
+ENV_API bool gltf_instance_exists(glTF_Instance_ID id)     { return g_objm.object_exists(id); }
+
+ENV_API bool destroy_environment(Environment_ID id)         { return g_objm.destroy_object(id); }
+ENV_API bool destroy_frame(Frame_ID id)                     { return g_objm.destroy_object(id); }
+ENV_API bool destroy_camera(Camera_ID id)                   { return g_objm.destroy_object(id); }
+ENV_API bool destroy_window(Window_ID id)                   { return g_objm.destroy_object(id); }
+
+ENV_API bool destroy_everything() { return g_objm.destroy_all_objects(); }
+
+ENV_API bool is_active_window_set() { return g_objm.is_active_window_set(); }

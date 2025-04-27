@@ -5,7 +5,7 @@ const Env = TinyDronesSim.Environments
 
 env = Env.create_environment()
 
-camera = Env.create_camera(env)
+camera = Env.create_camera(env, far_plane = 300.0)
 camera_motion_state = Env.Camera_Motion_State()
 
 window = Env.create_window(camera, cstatic"drone simulation example", target_fps = 60)
@@ -36,13 +36,13 @@ try
         println("Connect to joystick before executing the calibration routine.")
     else
         Env.assign_joystick_axis_idx_to_axis_type(0x03, Env.JOYSTICK_THROTTLE)
-        Env.set_joystick_axis_range(Env.JOYSTICK_THROTTLE, -19325, 2184, -4194)
+        Env.set_joystick_axis_range(Env.JOYSTICK_THROTTLE, -19325, -4075, 2184)
         Env.assign_joystick_axis_idx_to_axis_type(0x05, Env.JOYSTICK_YAW)
-        Env.set_joystick_axis_range(Env.JOYSTICK_YAW, -19325, 2184, -3509)
+        Env.set_joystick_axis_range(Env.JOYSTICK_YAW, -19325, -3490, 2184)
         Env.assign_joystick_axis_idx_to_axis_type(0x02, Env.JOYSTICK_PITCH)
-        Env.set_joystick_axis_range(Env.JOYSTICK_PITCH, -19325, 2184, -3529)
+        Env.set_joystick_axis_range(Env.JOYSTICK_PITCH, -19325, -3529, 2184)
         Env.assign_joystick_axis_idx_to_axis_type(0x01, Env.JOYSTICK_ROLL)
-        Env.set_joystick_axis_range(Env.JOYSTICK_ROLL, -19325, 2184, -3529)
+        Env.set_joystick_axis_range(Env.JOYSTICK_ROLL, -19325, -3529, 2184)
     end
     # END GENERATED calibration
 
@@ -65,10 +65,10 @@ try
                 set_angular_velocity!(drone, Float64_3(0,0,0))
             end
 
-            throttle = (Env.get_joystick_axis_mapped_value(Env.JOYSTICK_THROTTLE) + 1.0) * 100.0
-            yaw = Env.get_joystick_axis_mapped_value(Env.JOYSTICK_YAW) * 100.0
-            pitch = Env.get_joystick_axis_mapped_value(Env.JOYSTICK_PITCH) * 100.0
-            roll = Env.get_joystick_axis_mapped_value(Env.JOYSTICK_ROLL) * 100.0
+            throttle = (Env.get_joystick_axis_mapped_value(Env.JOYSTICK_THROTTLE) + 1.0) * 30.0
+            yaw = Env.get_joystick_axis_mapped_value(Env.JOYSTICK_YAW) * 30.0
+            pitch = Env.get_joystick_axis_mapped_value(Env.JOYSTICK_PITCH) * 30.0
+            roll = Env.get_joystick_axis_mapped_value(Env.JOYSTICK_ROLL) * 30.0
 
             # Very rudimentary mapping between drone and joystick
             drone.thrusters[1].angular_velo = -abs(throttle + pitch - roll - yaw)
@@ -97,9 +97,9 @@ try
             Env.set_active_window(window_drone_pov)
 
             # "attach" the drone_camera to the drone
-            Env.set_position(drone_camera, get_pos(drone))
+            Env.set_position(Env.get_filament_entity(drone_camera), get_pos(drone))
             # FIXME: The orientation is for some reason not correct, using the 'conjugate' "fixes" things, but this is obviously not ideal
-            Env.set_orientation(drone_camera, conjugate(get_orientation(drone)))
+            Env.set_orientation(Env.get_filament_entity(drone_camera), conjugate(get_orientation(drone)))
             
             Env.update_window()
         end

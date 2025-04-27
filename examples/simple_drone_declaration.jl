@@ -13,10 +13,10 @@ end
 
 # most constants here are just guesses (does it look okay)
 @kwdef mutable struct Drone
-    mass::Float64 = 0.8
+    mass::Float64 = 0.05
     lin_coeff_thrust::Float64 = 0.0001 # proportional to (rotational speed)^2
     lin_coeff_propeller_rotational_drag::Float64 = 0.00001 # proportional to (rotational speed)^2
-    lin_coeff_drag::Float64_3 = Float64_3(1.0, 1.0, 1.0)
+    lin_coeff_drag::Float64_3 = Float64_3(0.001, 0.001, 0.001)
     up::Float64_3 = Float64_3(0.0, 1.0, 0.0) # a vector defining the 'up' direction of the drone
     motor_inertia::Float64 = 0.0
     
@@ -30,13 +30,13 @@ end
     angular_velo::Float64_3 = Float64_3(0.0, 0.0, 0.0)    # angular velocity vector [radians / s]
 
     # stuff for visualization
-    gltf_model_instance::Env.UUID = 0
+    gltf_model_instance::Env.glTF_Instance_ID = Env.glTF_Instance_ID()
     trail::Vector{Float32_3} = Vector{Float32_3}(undef, 400) # For rendering (and especially with GPUs) 32-bit floats are the standard
 end
 
 # Based on: https://andrew.gibiansky.com/downloads/pdf/Quadcopter%20Dynamics,%20Simulation,%20and%20Control.pdf
 function TDS.get_mechanical_reaction(drone::Drone)::Resultant3D
-    force = -drone.velo .* drone.lin_coeff_drag # simple air resistance
+    force = Float64_3(0, 0, 0)
     torque = Float64_3(0, 0, 0)
     for i in 1:4
         # thrust from the propellers
@@ -60,9 +60,9 @@ function TDS.get_mechanical_reaction(drone::Drone)::Resultant3D
 end
 
 function TDS.get_inertia_matrix(drone::Drone)::Float64_3x3
-    return Float64_3x3([0.1 0    0
-                        0    0.1 0
-                        0    0    0.1])
+    return Float64_3x3([0.01 0    0
+                        0    0.01 0
+                        0    0    0.01])
 end
 
 TDS.get_pos(drone::Drone)::Float64_3              = drone.pos
@@ -81,10 +81,10 @@ function add_renderables(drone::Drone)
 end
 
 function update_renderables(drone::Drone)
-    prev_drone_pos = Env.get_position(drone.gltf_model_instance)
+    prev_drone_pos = Env.get_position(Env.get_filament_entity(drone.gltf_model_instance))
     
     # FIXME: The orientation is for some reason not correct, using the 'conjugate' "fixes" things, but this is obviously not ideal
-    Env.set_position_and_orientation(drone.gltf_model_instance, get_pos(drone), conjugate(get_orientation(drone)))
+    Env.set_position_and_orientation(Env.get_filament_entity(drone.gltf_model_instance), get_pos(drone), conjugate(get_orientation(drone)))
 
     # this is a retarded method for rendering the trail
     Env.add_line(prev_drone_pos, get_pos(drone), cstatic"unlit_white")

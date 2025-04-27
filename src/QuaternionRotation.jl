@@ -10,6 +10,7 @@ export Quaternion,
     quaternion_ccw_z,
     quaternion_cw_z,
     combine,
+    normalize,
     rotate_vector,
     inv_rotate_vector,
     conjugate,
@@ -68,6 +69,11 @@ conjugate(q::Quaternion) = Quaternion(-q.x, -q.y, -q.z, q.w)
 "The resulting quaternion behaves as if q is applied *first* and r is applied *afterterwards*."
 function combine(q::Quaternion, r::Quaternion)::Quaternion
     return q * r
+end
+
+function normalize(q::Quaternion)::Quaternion
+    d = sqrt(q.x^2 + q.y^2 + q.z^2 + q.w^2)
+    return Quaternion(q.x / d, q.y / d, q.z / d, q.w / d)
 end
 
 function rotate_vector(v::Float64_3, r::Quaternion)::Float64_3

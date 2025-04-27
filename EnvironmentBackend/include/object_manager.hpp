@@ -1,35 +1,14 @@
 #pragma once
 
-#include <mesh.hpp>
+#include "../environments.hpp"
+#include <filament_object_wrappers.hpp>
+#include <logging.hpp>
 
 #include <tsl/robin_map.h>
 #include <utils/Entity.h>
-#include <logging.hpp>
 
-#include <cstdint>
-#include <vector>
-
-enum Env_Object_Type {
-    ENVO_INVALID = 0,
-    ENVO_ENVIRONMENT,
-    ENVO_FRAME,
-    ENVO_CAMERA,
-    ENVO_WINDOW,
-    ENVO_FILAMENT_ENTITY,
-    ENVO_FILAMENT_GLTF_INSTANCE,
-    ENVO_MESH,
-    SIZE
-};
-
-static const char* env_object_type_name[Env_Object_Type::SIZE] = {
-    "Invalid",
-    "Environment",
-    "Frame",
-    "Camera",
-    "Window",
-    "Filament_Entity",
-    "Filament_Gltf_Instance",
-    "Mesh",
+struct UUID_Hasher {
+    uint64_t operator()(const UUID& uuid) const { return uuid.id; }
 };
 
 struct Environment;
@@ -37,110 +16,52 @@ struct Frame;
 struct Camera;
 struct Window;
 
-namespace filament { namespace gltfio { class FilamentInstance; }}
-
-namespace futils = utils;
-namespace fgltfio = filament::gltfio;
-
-typedef uint64_t UUID;
-struct UUID_Hasher {
-    uint64_t operator()(UUID id) const { return id; }
-};
-
-#define ENV_INVALID_UUID UUID(0)
-
-struct Env_Object {
-
-    bool operator==(Env_Object other) noexcept { return id == other.id; }
-    
-    UUID id = ENV_INVALID_UUID;
-    Env_Object_Type type = ENVO_INVALID;
-
-    union {
-        Environment* env;
-        Frame* frame;
-        Camera* camera;
-        Window* window;
-        futils::Entity fentity;
-        fgltfio::FilamentInstance* gltf_instance;
-        // Mesh* mesh;
-        uint64_t handle = 0; // this is just for adressing the memory of the union without "thinking" about a specific field
-    };
-
-    Environment* associated_env = nullptr;
-
-    futils::Entity get_representing_filament_entity();
-};
-
 struct Object_Manager {
-    
-    Env_Object add_object();
-    Env_Object add_object(Environment* env);
-    Env_Object add_object(Frame* frame);
-    Env_Object add_object(Camera* camera);
-    Env_Object add_object(Window* window);
-    Env_Object add_object(futils::Entity fentity, Environment* associated_env);
-    Env_Object add_object(fgltfio::FilamentInstance* finstance, Environment* associated_env);
-    // Env_Object add_object(Mesh* mesh);
 
-    Env_Object get_object(UUID obj_id);
-    bool destroy_object(UUID obj_id);
-    bool destroy_object(Env_Object obj);
+    Environment_ID     add_object(Environment* env);
+    Frame_ID           add_object(Frame* frame);
+    Camera_ID          add_object(Camera* camera);
+    Window_ID          add_object(Window* window);
+    Filament_Entity_ID add_object(Filament_Entity filament_entity);
+    glTF_Instance_ID   add_object(glTF_Instance gltf_instance);
+
+    Environment*     get_object(Environment_ID id);
+    Frame*           get_object(Frame_ID id);
+    Camera*          get_object(Camera_ID id);
+    Window*          get_object(Window_ID id);
+    Filament_Entity  get_object(Filament_Entity_ID id);
+    glTF_Instance    get_object(glTF_Instance_ID id);
+    
+    bool object_exists(Environment_ID id)     { return m_environments.find(id) != m_environments.end(); }
+    bool object_exists(Frame_ID id)           { return m_frames.find(id) != m_frames.end(); }
+    bool object_exists(Camera_ID id)          { return m_cameras.find(id) != m_cameras.end(); }
+    bool object_exists(Window_ID id)          { return m_windows.find(id) != m_windows.end(); }
+    bool object_exists(Filament_Entity_ID id) { return m_filament_entities.find(id) != m_filament_entities.end(); }
+    bool object_exists(glTF_Instance_ID id)   { return m_gltf_instances.find(id) != m_gltf_instances.end(); }
+
+    bool destroy_object(Environment_ID id);
+    bool destroy_object(Frame_ID id);
+    bool destroy_object(Camera_ID id);
+    bool destroy_object(Window_ID id);
+    
     bool destroy_all_objects();
-    bool object_exists(UUID obj_id);
-
-    Environment* get_as_environment(UUID obj_id);
-    Frame* get_as_frame(UUID obj_id);
-    Camera* get_as_camera(UUID obj_id);
-    Window* get_as_window(UUID obj_id);
-    futils::Entity get_as_filament_entity(UUID obj_id);
-    fgltfio::FilamentInstance* get_as_gltf_instance(UUID obj_id);
-
-    void set_active_environment(Environment* env, UUID env_id) {
-        active_env = env;
-        active_env_id = env_id;
-    }
     
-    void set_active_window(Window* window, UUID window_id) {
-        active_window = window;
-        active_window_id = window_id;
-    }
-
-    Environment* get_active_environment() {
-        if (!active_env) {
-            env_soft_error("No active environment has been set.");
-        }
-        return active_env;
-    }
-
-    UUID get_active_environment_id() {
-        if (active_env_id == ENV_INVALID_UUID) {
-            env_soft_error("No active environment has been set.");
-        }
-        return active_env_id;
-    }
-    
-    Window* get_active_window() {
-        if (!active_window) {
-            env_soft_error("No active window has been set.");
-        }
-        return active_window;
-    }
-
-    UUID get_active_window_id() {
-        if (active_window_id == ENV_INVALID_UUID) {
-            env_soft_error("No active window has been set.");
-        }
-        return active_window_id;
-    }
-
+    bool set_active_environment(Environment_ID id);
+    bool set_active_window(Window_ID id);
+    Environment* get_active_environment();
+    Environment_ID get_active_environment_id();
+    Window* get_active_window();
+    Window_ID get_active_window_id();
     bool is_active_window_set() { return active_window != nullptr; }
 
-    const std::vector<UUID>& get_all_window_ids_vector() { return m_all_window_ids; }
+    const tsl::robin_map<Environment_ID, Environment*, UUID_Hasher>& get_environments()             { return m_environments; }
+    const tsl::robin_map<Frame_ID, Frame*, UUID_Hasher>& get_frames()                               { return m_frames; }
+    const tsl::robin_map<Camera_ID, Camera*, UUID_Hasher>& get_cameras()                            { return m_cameras; }
+    const tsl::robin_map<Window_ID, Window*, UUID_Hasher>& get_windows()                            { return m_windows; }
+    const tsl::robin_map<Filament_Entity_ID, Filament_Entity, UUID_Hasher>& get_filament_entities() { return m_filament_entities; }
+    const tsl::robin_map<glTF_Instance_ID, glTF_Instance, UUID_Hasher>& get_gltf_instances()        { return m_gltf_instances; }
 
 private:
-
-    Env_Object add_object(Env_Object obj);
 
     /*
      * We are using the 'robin_map' with robin hood hashing, this is also what Filament uses
@@ -148,29 +69,23 @@ private:
      * Because the library is intended to be used from a julia repl, where things are often
      * repeatedly created and destroyed it seems like a good fit.
      */
+
+    tsl::robin_map<Environment_ID, Environment*, UUID_Hasher>        m_environments;
+    tsl::robin_map<Frame_ID, Frame*, UUID_Hasher>                    m_frames;
+    tsl::robin_map<Camera_ID, Camera*, UUID_Hasher>                  m_cameras;
+    tsl::robin_map<Window_ID, Window*, UUID_Hasher>                  m_windows;
+    tsl::robin_map<Filament_Entity_ID, Filament_Entity, UUID_Hasher> m_filament_entities;
+    tsl::robin_map<glTF_Instance_ID, glTF_Instance, UUID_Hasher>     m_gltf_instances;
     
-    tsl::robin_map<UUID, Env_Object, UUID_Hasher> m_objects;
-
-    // tsl::robin_map requires these attributes
-    static_assert(std::is_nothrow_swappable<std::pair<UUID, Env_Object>>::value
-                  && std::is_nothrow_move_constructible<std::pair<UUID, Env_Object>>::value);
-
-    /*
-     * A Vector for iterating over all windows
-     * Having a vector instead of another map of windows is not an issue, because there wont be that many of them.
-     */
-    
-    std::vector<UUID> m_all_window_ids;
-
     /*
      * Universal Unique Identifier implementation
      */
     
-    UUID m_last_id = 0; // zero is the invalid id
-    UUID m_guaranteed_invalid_ids_between_here_and_0 = 0;
+    UUID m_last_id = {0}; // zero is the invalid id
+    UUID m_guaranteed_invalid_ids_between_here_and_0 = {0};
 
     UUID create_id() {
-        m_last_id++;
+        m_last_id.id++;
         return m_last_id;
     }
 
@@ -181,65 +96,10 @@ private:
      */
 
     Window* active_window = nullptr;
-    UUID active_window_id = ENV_INVALID_UUID;
+    Window_ID active_window_id = {ENV_INVALID_UUID};
 
     Environment* active_env = nullptr;
-    UUID active_env_id = ENV_INVALID_UUID;
+    Environment_ID active_env_id = {ENV_INVALID_UUID};
 };
 
-// global 'Object_Manager' defined in 'object_manager.cpp'
 extern Object_Manager g_objm;
-
-inline Environment* Object_Manager::get_as_environment(UUID obj_id) {
-    Env_Object obj = get_object(obj_id);
-    if (obj.type != ENVO_ENVIRONMENT) {
-        ENV_OBJ_TYPE_ARGUMENT_ERROR(obj.type, ENVO_ENVIRONMENT);
-        return nullptr;
-    }
-    return obj.env;
-}
-
-inline Frame* Object_Manager::get_as_frame(UUID obj_id) {
-    Env_Object obj = get_object(obj_id);
-    if (obj.type != ENVO_FRAME) {
-        ENV_OBJ_TYPE_ARGUMENT_ERROR(obj.type, ENVO_FRAME);
-        return nullptr;
-    }
-    return obj.frame;
-}
-
-inline Camera* Object_Manager::get_as_camera(UUID obj_id) {
-    Env_Object obj = get_object(obj_id);
-    if (obj.type != ENVO_CAMERA) {
-        ENV_OBJ_TYPE_ARGUMENT_ERROR(obj.type, ENVO_CAMERA);
-        return nullptr;
-    }
-    return obj.camera;
-}
-
-inline Window* Object_Manager::get_as_window(UUID obj_id) {
-    Env_Object obj = get_object(obj_id);
-    if (obj.type != ENVO_WINDOW) {
-        ENV_OBJ_TYPE_ARGUMENT_ERROR(obj.type, ENVO_WINDOW);
-        return nullptr;
-    }
-    return obj.window;
-}
-
-inline futils::Entity Object_Manager::get_as_filament_entity(UUID obj_id) {
-    Env_Object obj = get_object(obj_id);
-    if (obj.type != ENVO_FILAMENT_ENTITY) {
-        ENV_OBJ_TYPE_ARGUMENT_ERROR(obj.type, ENVO_FILAMENT_ENTITY);
-        return futils::Entity{};
-    }
-    return obj.fentity;
-}
-
-inline fgltfio::FilamentInstance* Object_Manager::get_as_gltf_instance(UUID obj_id) {
-    Env_Object obj = get_object(obj_id);
-    if (obj.type != ENVO_FILAMENT_GLTF_INSTANCE) {
-        ENV_OBJ_TYPE_ARGUMENT_ERROR(obj.type, ENVO_FILAMENT_GLTF_INSTANCE);
-        return nullptr;
-    }
-    return obj.gltf_instance;
-}

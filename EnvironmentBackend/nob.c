@@ -134,13 +134,14 @@ bool build_libenvironment_shared(Cmd *cmd)
         SRC_FOLDER "camera.cpp",
         SRC_FOLDER "environment.cpp",
         SRC_FOLDER "filament_entity.cpp",
+        SRC_FOLDER "filament_object_wrappers.cpp",
         SRC_FOLDER "frame.cpp",
         SRC_FOLDER "logging.cpp",
         SRC_FOLDER "math.cpp",
         SRC_FOLDER "mesh.cpp",
         SRC_FOLDER "object_manager.cpp",
         SRC_FOLDER "stb_image.cpp",
-        SRC_FOLDER "window.cpp",
+        SRC_FOLDER "window.cpp"
     };
 
     cmd_append_static_array(cmd, source_files);

@@ -1,4 +1,4 @@
-#include "../environments.h"
+#include "../environments.hpp"
 #include <frame.hpp>
 
 #include <camera.hpp>
@@ -10,18 +10,18 @@
 #include <filament/Engine.h>
 #include <backend/PixelBufferDescriptor.h>
 
-UUID create_frame(UUID environment_id, uint32_t width, uint32_t height)
+ENV_API Frame_ID create_frame(Environment_ID env_id, uint32_t width, uint32_t height)
 {
-    Environment* env = g_objm.get_as_environment(environment_id);
-    if (!env) return ENV_INVALID_UUID;
+    Environment* env = g_objm.get_object(env_id);
+    if (!env) return {ENV_INVALID_UUID};
 
     Frame* frame = new Frame;
     frame->env = env;
     frame->swap_chain = frame->env->engine->createSwapChain(width, height);
-    return g_objm.add_object(frame).id;
+    return g_objm.add_object(frame);
 }
 
-Frame* __create_frame(Environment* env, fmt::SwapChain* swap_chain)
+Frame* create_frame(Environment* env, fmt::SwapChain* swap_chain)
 {
     assert(env);
     Frame* frame = new Frame;
@@ -35,9 +35,9 @@ Frame::~Frame()
     env->engine->destroy(swap_chain);
 }
 
-bool enable_pixel_capture(UUID frame_id, filament::backend::PixelDataFormat pixel_data_format, filament::backend::PixelDataType pixel_data_type)
+ENV_API bool enable_pixel_capture(Frame_ID frame_id, filament::backend::PixelDataFormat pixel_data_format, filament::backend::PixelDataType pixel_data_type)
 {
-    Frame* frame = g_objm.get_as_frame(frame_id);
+    Frame* frame = g_objm.get_object(frame_id);
     if (!frame) return false;
 
     frame->capture_pixels = true;
@@ -46,9 +46,9 @@ bool enable_pixel_capture(UUID frame_id, filament::backend::PixelDataFormat pixe
     return true;
 }
 
-bool get_pixel_data(UUID frame_id, void** pixel_data, uint32_t* width, uint32_t* height)
+ENV_API bool get_pixel_data(Frame_ID frame_id, void** pixel_data, uint32_t* width, uint32_t* height)
 {
-    Frame* frame = g_objm.get_as_frame(frame_id);
+    Frame* frame = g_objm.get_object(frame_id);
     if (!frame) return false;
 
     if (!frame->capture_pixels) {
@@ -62,16 +62,17 @@ bool get_pixel_data(UUID frame_id, void** pixel_data, uint32_t* width, uint32_t*
     return *pixel_data != nullptr;
 }
 
-bool disable_pixel_capture(UUID frame_id)
+ENV_API bool disable_pixel_capture(Frame_ID frame_id)
 {
-    Frame* frame = g_objm.get_as_frame(frame_id);
+    Frame* frame = g_objm.get_object(frame_id);
     if (!frame) return false;
 
     frame->capture_pixels = false;
     return true;
 }
 
-bool render_frame(Camera* camera, Frame* frame) {
+bool render_frame(Camera* camera, Frame* frame)
+{
     // beginFrame() returns false if we need to skip a frame (gpu too busy)
     if (camera->renderer->beginFrame(frame->swap_chain)) {
         
@@ -110,11 +111,11 @@ bool render_frame(Camera* camera, Frame* frame) {
     return false;
 }
 
-bool render_frame(UUID camera_id, UUID frame_id) {
-    Camera* camera = g_objm.get_as_camera(camera_id);
-    Frame* frame = g_objm.get_as_frame(frame_id);
-    if (!camera || !frame) {
-        return false;
-    }
+ENV_API bool render_frame(Camera_ID camera_id, Frame_ID frame_id)
+{
+    Camera* camera = g_objm.get_object(camera_id);
+    Frame* frame = g_objm.get_object(frame_id);
+    if (!camera || !frame) return false;
+    
     return render_frame(camera, frame);
 }

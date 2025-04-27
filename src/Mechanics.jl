@@ -102,6 +102,5 @@ function integrate_physics_euler!(obj, dt::Float64, epsilon::Float64)
     set_angular_velocity!(obj, angular_u + angular_u_dot * dt)
     
     orientation_delta = get_angular_velocity(obj) * dt
-    # combine(x, y ) was flipped without testing !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-    set_orientation!(obj, combine(get_orientation(obj), axis_angle_to_quaternion(orientation_delta, epsilon)))
+    set_orientation!(obj, normalize(combine(get_orientation(obj), axis_angle_to_quaternion(orientation_delta, epsilon))))
 end

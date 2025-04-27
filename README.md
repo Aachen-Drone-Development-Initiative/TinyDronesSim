@@ -20,7 +20,8 @@ TinyDronesSim is a tool for simulating the *tinydrone*.
 - [x] Better internal managing of objects (destroy all option + hash-stored id instead of pointer)
 - [x] Replace *_Settings structs with function arguments
 - [x] reimplement activating things like environment and window (to avoid stupid UUID conversion)
-- [] add controller input support
+- [x] add controller input support
+- [x] Refactor single robin_map to many maps, one for each object type, while keeping UUID
 - [] implement Mesh constructor
 
 

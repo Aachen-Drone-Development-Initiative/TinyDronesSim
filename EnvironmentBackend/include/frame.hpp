@@ -29,5 +29,5 @@ struct Frame {
     void* pixel_data = nullptr;
 };
 
-Frame* __create_frame(Environment* env, fmt::SwapChain* swap_chain);
+Frame* create_frame(Environment* env, fmt::SwapChain* swap_chain);
 bool render_frame(Camera* camera, Frame* frame);
