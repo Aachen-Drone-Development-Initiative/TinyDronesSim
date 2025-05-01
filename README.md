@@ -15,7 +15,7 @@ TinyDronesSim is a tool for simulating the *tinydrone*.
 
 1. `git clone https://github.com/Aachen-Drone-Development-Initiative/TinyDronesSim.git`
 2. Building the `libenvironment.so`
-   1.`cd TinyDronesSim/EnvironmentBackend`
+   1. `cd TinyDronesSim/EnvironmentBackend`
    2. Get Google-Filament
       - `git clone https://github.com/google/filament.git --depth=1` specifying `depth=1` to do a shallow clone (still 2 GB)
    3. Get the build-environment dependencies. They are required for compiling Google-Filament.
