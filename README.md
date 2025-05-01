@@ -1,5 +1,3 @@
-# WORK IN PROGRESS!
-
 # TinyDronesSim
 
 TinyDronesSim is a tool for simulating the *tinydrone*.  
@@ -33,7 +31,7 @@ TinyDronesSim is a tool for simulating the *tinydrone*.
    5. Compile Goolge-Filament. *This might take a while (10-20 mins).* **AND** compile `libenvironment.so`.
       - `./nob filament libenv`
    7. `cd ..` return to the `TinyDronesSim/` directory 
-3. Install [Julia](https://julialang.org/downloads/).
+3. Install [Julia](https://julialang.org/install/).
 4. `julia --project=.` starting julia and activating the project (don't forget the `=.` !!)
 5. `using Pkg; Pkg.add(["StaticArrays", "StaticStrings"])` adding dependencies. This only needs to be done **once**.
 6. `include("examples/environment_test.jl")` executing an example script
