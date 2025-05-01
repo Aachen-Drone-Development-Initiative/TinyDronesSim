@@ -193,7 +193,7 @@ bool Object_Manager::destroy_all_objects()
     return true;
 }
 
-bool Object_Manager::set_active_environment(Environment_ID id)
+bool Object_Manager::environment_activate(Environment_ID id)
 {
     Environment* env = g_objm.get_object(id);
     if (!env) return false;
@@ -203,7 +203,7 @@ bool Object_Manager::set_active_environment(Environment_ID id)
     return true;
 }
     
-bool Object_Manager::set_active_window(Window_ID id)
+bool Object_Manager::window_activate(Window_ID id)
 {
     Window* window = g_objm.get_object(id);
     if (!window) return false;
@@ -249,8 +249,8 @@ Window_ID Object_Manager::get_active_window_id()
  * ENV_API function implementations
  */
 
-ENV_API bool set_active_environment(Environment_ID id) { return g_objm.set_active_environment(id); }
-ENV_API bool set_active_window(Window_ID id)           { return g_objm.set_active_window(id); }
+ENV_API bool environment_activate(Environment_ID id) { return g_objm.environment_activate(id); }
+ENV_API bool window_activate(Window_ID id)           { return g_objm.window_activate(id); }
 
 ENV_API bool environment_exists(Environment_ID id)         { return g_objm.object_exists(id); }
 ENV_API bool frame_exists(Frame_ID id)                     { return g_objm.object_exists(id); }

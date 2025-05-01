@@ -1,13 +1,13 @@
-#include "nob_config.h"
+#include <unistd.h>
 
 #define NOB_IMPLEMENTATION
 #define NOB_STRIP_PREFIX
 #define NOB_EXPERIMENTAL_DELETE_OLD
 #include "nob.h"
 
-// Need to use clang, because filament is build with clang so the libraries expect libc++
+// Need to use clang and libc++, because filament is build with clang.
 #define CXX "clang++"
-#define CPPFLAGS "-std=c++17", "-stdlib=libc++", "-Wall", "-Wextra", "-g"
+#define CPPFLAGS "-std=c++17", "-stdlib=libc++", "-Wall", "-Wextra", "-Wno-return-type-c-linkage", "-g"
 
 #define PROJECT_NAME "TinyDronesSim-EnvironmentBackend"
 
@@ -19,37 +19,52 @@
 #define TESTS_FOLDER "tests/"
 #define INCLUDE_FOLDER "include/"
 
-#define FILAMENT_LIB_PATH "filament/lib/"
+#define FILAMENT_INCLUDE_PATH               "./filament/filament/include/"
+#define FILAMENT_BACKEND_INCLUDE_PATH       "./filament/filament/backend/include/"
+#define FILAMENT_FILAMESH_INCLUDE_PATH      "./filament/libs/filameshio/include/"
+#define FILAMENT_FILAMAT_INCLUDE_PATH       "./filament/libs/filamat/include/"
+#define FILAMENT_UTILS_INCLUDE_PATH         "./filament/libs/utils/include/"
+#define FILAMENT_MATH_INCLUDE_PATH          "./filament/libs/math/include/"
+#define FILAMENT_FILABRIDGE_INCLUDE_PATH    "./filament/libs/filabridge/include/"
+#define FILAMENT_IBLPREFILTER_INCLUDE_PATH  "./filament/libs/iblprefilter/include/"
+#define FILAMENT_GLTFIO_INCLUDE_PATH        "./filament/libs/gltfio/include/"
+#define FILAMENT_SDL2_INCLUDE_PATH          "./filament/third_party/libsdl2/include/"
+#define FILAMENT_STB_INCLUDE_PATH           "./filament/third_party/stb/"
+#define FILAMENT_ROBIN_MAP_INCLUDE_PATH     "./filament/third_party/robin-map/"
 
-#define FILAMENT_INCLUDE_PATH              FILAMENT_PATH "filament/include/"
-#define FILAMENT_BACKEND_INCLUDE_PATH      FILAMENT_PATH "filament/backend/include/"
-#define FILAMENT_FILAMESH_INCLUDE_PATH     FILAMENT_PATH "libs/filameshio/include/"
-#define FILAMENT_FILAMAT_INCLUDE_PATH      FILAMENT_PATH "libs/filamat/include/"
-#define FILAMENT_UTILS_INCLUDE_PATH        FILAMENT_PATH "libs/utils/include/"
-#define FILAMENT_MATH_INCLUDE_PATH         FILAMENT_PATH "libs/math/include/"
-#define FILAMENT_FILABRIDGE_INCLUDE_PATH   FILAMENT_PATH "libs/filabridge/include/"
-#define FILAMENT_IBLPREFILTER_INCLUDE_PATH FILAMENT_PATH "libs/iblprefilter/include/"
-#define FILAMENT_GLTFIO_INCLUDE_PATH       FILAMENT_PATH "libs/gltfio/include/"
-#define FILAMENT_SDL2_INCLUDE_PATH         FILAMENT_PATH "third_party/libsdl2/include/"
-#define FILAMENT_STB_INCLUDE_PATH          FILAMENT_PATH "third_party/stb/"
-#define FILAMENT_ROBIN_MAP_INCLUDE_PATH    FILAMENT_PATH "third_party/robin-map/"
+#define FILAMENT_LIBS        "./filament/libs/"
+#define FILAMENT_THIRD_PARTY "./filament/third_party/"
+
+#define FILAMENT_LIB_PATH         "./filament/filament/"
+#define FILAMENT_BACKEND_LIB_PATH "./filament/filament/backend/"
+#define FILAMENT_SHADERS_LIB_PATH "./filament/shaders/"
+
+#define FILAMENT_BLUEGL_LIB_PATH        FILAMENT_LIBS "bluegl/"
+#define FILAMENT_BLUEVK_LIB_PATH        FILAMENT_LIBS "bluevk/"
+#define FILAMENT_UTILS_LIB_PATH         FILAMENT_LIBS "utils/"
+#define FILAMENT_FILABRIDGE_LIB_PATH    FILAMENT_LIBS "filabridge/"
+#define FILAMENT_FILAFLAT_LIB_PATH      FILAMENT_LIBS "filaflat/"
+#define FILAMENT_GEOMETRY_LIB_PATH      FILAMENT_LIBS "geometry/"
+#define FILAMENT_GLTFIO_LIB_PATH        FILAMENT_LIBS "gltfio/"
+#define FILAMENT_FILAMESHIO_LIB_PATH    FILAMENT_LIBS "filameshio/"
+#define FILAMENT_IBL_PATH               FILAMENT_LIBS "ibl/"
+#define FILAMENT_IBL_PREFILTER_LIB_PATH FILAMENT_LIBS "iblprefilter/"
+#define FILAMENT_FILAMAT_LIB_PATH       FILAMENT_LIBS "filamat/"
+
+#define FILAMENT_SMOLV_LIB_PATH           FILAMENT_THIRD_PARTY "smol-v/tnt/"
+#define FILAMENT_GLSLANG_LIB_PATH         FILAMENT_THIRD_PARTY "glslang/tnt/glslang/"
+#define FILAMENT_DRACO_DEC_LIB_PATH       FILAMENT_THIRD_PARTY "draco/tnt/"
+#define FILAMENT_MIKKTSPACE_LIB_PATH      FILAMENT_THIRD_PARTY "mikktspace/"
+#define FILAMENT_SPIRV_LIB_PATH           FILAMENT_THIRD_PARTY "glslang/tnt/SPIRV/"
+#define FILAMENT_SPIRV_CROSS_LIB_PATH     FILAMENT_THIRD_PARTY "spirv-cross/tnt/"
+#define FILAMENT_SPIRV_TOOLS_LIB_PATH     FILAMENT_THIRD_PARTY "spirv-tools/source/"
+#define FILAMENT_SPIRV_TOOLS_OPT_LIB_PATH FILAMENT_THIRD_PARTY "spirv-tools/source/opt/"
+#define FILAMENT_MESH_OPTIMIZER_LIB_PATH  FILAMENT_THIRD_PARTY "meshoptimizer/tnt/"
+#define FILAMENT_SDL2_LIB_PATH            FILAMENT_THIRD_PARTY "libsdl2/tnt/"
 
 #define ENVLIB_TARGET_NAME "libenvironment.so"
 
-#define FILAMENT_MATC_EXECUTABLE_PATH FILAMENT_PATH "tools/matc/matc"
-
-const char* enter_folder(const char *folder)
-{
-    const char* current_dir = nob_get_current_dir_temp();
-    String_Builder sb = {0};
-    sb_append_cstr(&sb, current_dir);
-    sb_append_cstr(&sb, "/");
-    sb_append_cstr(&sb, folder);
-    sb_append_null(&sb);
-    set_current_dir(sb.items);
-    sb_free(sb);
-    return current_dir;
-}
+#define FILAMENT_MATC_EXECUTABLE_PATH "./filament/tools/matc/matc"
 
 #define cmd_append_static_array(cmd, array)          \
     do {                                             \
@@ -111,10 +126,59 @@ void move_obj_files_to_bin()
     }
 }
 
+const char* enter_folder(const char *folder)
+{
+    const char* current_dir = nob_get_current_dir_temp();
+    String_Builder sb = {0};
+    sb_append_cstr(&sb, current_dir);
+    sb_append_cstr(&sb, "/");
+    sb_append_cstr(&sb, folder);
+    sb_append_null(&sb);
+    set_current_dir(sb.items);
+    sb_free(sb);
+    return current_dir;
+}
+
+void build_success(const char* target_name)
+{
+    printf("\nSuccessfully built '%s'!\n\n", target_name);
+}
+
+bool build_google_filament(Cmd *cmd)
+{
+    const char* prev_dir = enter_folder("filament");
+
+    bool result = true;
+
+    cmd_append(cmd, "cmake", "-G", "Ninja",
+               "-DCMAKE_CXX_COMPILER=clang++", "-DCMAKE_C_COMPILER=clang",
+               "-DCMAKE_BUILD_TYPE=Release",
+               "-DCMAKE_INSTALL_PREFIX=../release/filament",
+               "-DCMAKE_CXX_FLAGS=\"-stdlib=libc++ -fPIC\"",
+               "-DCMAKE_C_FLAGS=\"-fPIC\"");
+    if (!cmd_run_sync_and_reset(cmd)) {
+        result = false;
+        goto exit;
+    }
+
+    cmd_append(cmd, "ninja");
+    if (!cmd_run_sync_and_reset(cmd)) {
+        result = false;
+        goto exit;
+    }
+    
+exit:
+    set_current_dir(prev_dir);
+    if (result) build_success("Goolge-Filament");
+    return result;
+}
+
 bool build_libenvironment_shared(Cmd *cmd)
 {
+    // First move all the 
+    
     // -fPIC - 'position independet code' necessary for shared libraries
-    // -fvisibility=hidden - hides all symbols by default, we have the macro ENV_API to exclude the api functions from this rule
+    // -fvisibility=hidden - hides all symbols by default, we have the macro ENV_API to exclude only the api functions from this rule
     cmd_append(cmd, CXX, CPPFLAGS, "-fPIC", "-fvisibility=hidden", "-c");
     cmd_append(cmd, "-I", INCLUDE_FOLDER,
                "-I", FILAMENT_INCLUDE_PATH,
@@ -154,7 +218,30 @@ bool build_libenvironment_shared(Cmd *cmd)
     nob_read_entire_dir(".", &obj_file_paths);
     cmd_append_files_with_ext(cmd, obj_file_paths, "o");
 
-    cmd_append(cmd, "-L", FILAMENT_LIB_PATH);
+    cmd_append(cmd, "-L", FILAMENT_LIB_PATH,
+               "-L", FILAMENT_BACKEND_LIB_PATH,
+               "-L", FILAMENT_SHADERS_LIB_PATH,
+               "-L", FILAMENT_BLUEGL_LIB_PATH,
+               "-L", FILAMENT_BLUEVK_LIB_PATH,
+               "-L", FILAMENT_UTILS_LIB_PATH,
+               "-L", FILAMENT_FILABRIDGE_LIB_PATH,
+               "-L", FILAMENT_FILAFLAT_LIB_PATH,
+               "-L", FILAMENT_GEOMETRY_LIB_PATH,
+               "-L", FILAMENT_GLTFIO_LIB_PATH,
+               "-L", FILAMENT_FILAMESHIO_LIB_PATH,
+               "-L", FILAMENT_IBL_PATH,
+               "-L", FILAMENT_IBL_PREFILTER_LIB_PATH,
+               "-L", FILAMENT_FILAMAT_LIB_PATH,
+               "-L", FILAMENT_SMOLV_LIB_PATH,
+               "-L", FILAMENT_GLSLANG_LIB_PATH,
+               "-L", FILAMENT_DRACO_DEC_LIB_PATH,
+               "-L", FILAMENT_MIKKTSPACE_LIB_PATH,
+               "-L", FILAMENT_SPIRV_LIB_PATH,
+               "-L", FILAMENT_SPIRV_CROSS_LIB_PATH,
+               "-L", FILAMENT_SPIRV_TOOLS_LIB_PATH,
+               "-L", FILAMENT_SPIRV_TOOLS_OPT_LIB_PATH,
+               "-L", FILAMENT_MESH_OPTIMIZER_LIB_PATH,
+               "-L", FILAMENT_SDL2_LIB_PATH);
 
     const char *filament_libs[] = {
         "-lfilament",
@@ -166,7 +253,6 @@ bool build_libenvironment_shared(Cmd *cmd)
         "-lfilaflat",
         "-lgeometry",
         "-lsmol-v",
-        "-lvkshaders",
 
         "-lgltfio",
         "-lgltfio_core",
@@ -184,18 +270,10 @@ bool build_libenvironment_shared(Cmd *cmd)
         "-lfilameshio",
         "-lmeshoptimizer",
         "-lfilament-iblprefilter",
-        "-lstb",
-        "-limage",
-        "-limageio",
-        "-lktxreader",
         "-lfilamat",
         "-libl",
         "-lfilament",
         "-lutils",
-        "-lpng",
-        "-ltinyexr",
-        "-lz",
-        "-limage",
         "-lsdl2",
     };
     
@@ -206,7 +284,6 @@ bool build_libenvironment_shared(Cmd *cmd)
         "-lc++",
         "-ldl"
     };
-    
     cmd_append_static_array(cmd, external_libs);
 
     if (!cmd_run_sync_and_reset(cmd)) return false;
@@ -214,6 +291,8 @@ bool build_libenvironment_shared(Cmd *cmd)
     move_obj_files_to_bin();
     move_local_file_to_folder(ENVLIB_TARGET_NAME, BUILD_FOLDER LIB_FOLDER);
 
+    build_success(ENVLIB_TARGET_NAME);
+    
     return true;
 }
 
@@ -232,6 +311,8 @@ bool build_libenvironment_shared_test(Cmd *cmd)
     if (!cmd_run_sync_and_reset(cmd)) return false;
 
     move_local_file_to_folder("libenvironment_test", BUILD_FOLDER BIN_FOLDER);
+
+    build_success("libenvironment_test");
 
     return true;
 }
@@ -266,16 +347,13 @@ void print_help()
         "--HELP MESSAGE--\n"
         "This is the integrated build-tool for '"PROJECT_NAME"' built with 'nob.h'.\n"
         "Learn more about 'nob.h' here: https://github.com/tsoding/nob.h\n\n"
-        "GET THE DEPENDENCIES:\n"
-        "  - ..\n"
-        "BUILD THIS PROJECT:\n"
-        "  Run without arguments to build " PROJECT_NAME ".\n"
-        "  You can call 'nob' from any directory.\n"
-        "  ARGUMENTS:\n"
-        "    'help'/'--help' Print this help message.\n"
-        "    'clean'         Clean the build.\n"
-        "    'tests'         Also build the tests.\n"
-        "    'materials'     Also compile the materials (.mat to .filamat).\n";
+        "ARGUMENTS:\n\n"
+        "  'help'        Print this help message.\n"
+        "  'filament'    Build Google-Filament. Make sure to install the dependencies first!!\n"
+        "  'libenv'      Build 'libenvironment.so' .\n"
+        "  'clean'       Clean the build.\n"
+        "  'tests'       Build the tests.\n"
+        "  'materials'   Compile the materials (.mat to .filamat).\n";
     
     printf("%s", help_message);
 }
@@ -286,35 +364,25 @@ bool clean_build(Cmd *cmd)
     return cmd_run_sync_and_reset(cmd);
 }
 
-void handle_execution_from_different_directory(int argc, char** argv, Cmd* cmd)
-{
-    // If we are called from another directory, the first argument 'argv[0]' would be for example
-    // something like '../../nob'. In that case we enter that directory '../..' and change 'argv[0]' to "./nob"
-    int i = strlen(argv[0]) - 1;
-    while (*(argv[0] + i) != '/' && i >= 0) --i;
-    if (i != 0) {
-        char* relative_path = malloc(sizeof(char) * (i + 1)); // leaked
-        strncpy(relative_path, argv[0], i + 1);
-        enter_folder(relative_path);
-    }
-    String_Builder new_argv0 = {0}; // leaked
-    sb_append_cstr(&new_argv0, "./");
-    sb_append_cstr(&new_argv0, argv[0] + i + 1);
-    argv[0] = new_argv0.items;
-}
-
 int main(int argc, char **argv)
 {
     Cmd cmd = {0};
 
-    handle_execution_from_different_directory(argc, argv, &cmd);
-
     // Nob can detect, if the build script nob.c or nob_config.h have been changed and rebuilds nob automatically.
-    NOB_GO_REBUILD_URSELF_PLUS(argc, argv, "nob_config.h");
+    NOB_GO_REBUILD_URSELF(argc, argv);
 
     const char *program_name = shift_args(&argc, &argv);
+    
+    bool build_libenv = false;
     bool build_tests = false;
     bool compile_materials = false;
+    bool build_filament = false;
+
+    // No arguments means, nothing will happen.
+    if (argc == 0) {
+        print_help();
+        return 0;
+    }
 
     while (argc > 0)
     {
@@ -328,12 +396,27 @@ int main(int argc, char **argv)
             if (!clean_build(&cmd)) return 1;
             return 0; 
         }
+        else if (!strcmp(nob_cmd, "libenv")) {
+            build_libenv = true; 
+        }
         else if (!strcmp(nob_cmd, "tests")) {
             build_tests = true; 
+        }
+        else if (!strcmp(nob_cmd, "filament")) {
+            build_filament = true;
         }
         else if (!strcmp(nob_cmd, "materials")) {
             compile_materials = true; 
         }
+        else {
+            nob_log(ERROR, "Unrecognized command '%s'\n", nob_cmd);
+            print_help();
+            return 0;
+        }
+    }
+
+    if (build_filament) {
+        if (!build_google_filament(&cmd)) return 1;
     }
 
     if (!mkdir_if_not_exists(BUILD_FOLDER)) return 1;
@@ -341,7 +424,9 @@ int main(int argc, char **argv)
     if (!mkdir_if_not_exists(BUILD_FOLDER BIN_FOLDER)) return 1;
     if (!mkdir_if_not_exists(BUILD_FOLDER LIB_FOLDER)) return 1;
 
-    if (!build_libenvironment_shared(&cmd)) return 1;
+    if (build_libenv) {
+        if (!build_libenvironment_shared(&cmd)) return 1;
+    }
 
     if (compile_materials) {
         if (!compile_filament_materials(&cmd)) return 1;

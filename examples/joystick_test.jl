@@ -20,7 +20,7 @@ while Env.exists(window)
     end
     global i+=1
     
-    Env.update_window()
+    Env.window_update()
 end
 
 Env.destroy_everything()

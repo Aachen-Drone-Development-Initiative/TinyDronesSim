@@ -105,7 +105,7 @@ Environment_ID create_environment()
     env->gltf.asset_loader = fgltfio::AssetLoader::create(asset_loader_config);
     
     Environment_ID env_id = g_objm.add_object(env);
-    g_objm.set_active_environment(env_id);
+    g_objm.environment_activate(env_id);
     
     add_lit_material("DefaultMaterial");
     return env_id;

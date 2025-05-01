@@ -23,4 +23,3 @@ zero_mat33f() = Float64_3x3([0 0 0; 0 0 0; 0 0 0])
 
 euclid_norm(a) = sqrt(a'a)
 norm_vector(a) = a ./ euclid_norm(a)
-

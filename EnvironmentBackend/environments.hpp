@@ -41,7 +41,7 @@ ENV_API bool destroy_everything();
 ENV_API Environment_ID create_environment(); // automatically activates the environment
 ENV_API bool environment_exists(Environment_ID env_id);
 ENV_API bool destroy_environment(Environment_ID env_id);
-ENV_API bool set_active_environment(Environment_ID env_id);
+ENV_API bool environment_activate(Environment_ID env_id);
 
 /*
  * Adding an Image Based Lighting skybox to the scene.
@@ -132,11 +132,15 @@ ENV_API Window_ID create_window(Camera_ID camera_id, int target_fps, const char*
 ENV_API bool window_exists(Window_ID window_id);
 ENV_API bool destroy_window(Window_ID window_id);
 
-ENV_API bool set_active_window(Window_ID window_id);
+ENV_API bool window_visible(Window_ID window_id);
+ENV_API bool window_show(Window_ID window_id);
+ENV_API bool window_hide(Window_ID window_id);
+
+ENV_API bool window_activate(Window_ID window_id);
 ENV_API bool is_active_window_set();
-ENV_API bool update_window();
-ENV_API double get_last_frame_time_of_window_ms();
-ENV_API bool focus_input_to_window(); // Focus input from keyboard, mouse, joystick, etc. to the active window.
+ENV_API bool window_update();
+ENV_API double window_get_last_frame_time_ms();
+ENV_API bool window_give_input_focus(); // Focus input from keyboard, mouse, joystick, etc. to the active window.
 
 /*
  * Window User Input

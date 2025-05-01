@@ -46,8 +46,8 @@ struct Object_Manager {
     
     bool destroy_all_objects();
     
-    bool set_active_environment(Environment_ID id);
-    bool set_active_window(Window_ID id);
+    bool environment_activate(Environment_ID id);
+    bool window_activate(Window_ID id);
     Environment* get_active_environment();
     Environment_ID get_active_environment_id();
     Window* get_active_window();

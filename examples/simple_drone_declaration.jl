@@ -13,7 +13,7 @@ end
 
 # most constants here are just guesses (does it look okay)
 @kwdef mutable struct Drone
-    mass::Float64 = 0.05
+    mass::Float64 = 0.5
     lin_coeff_thrust::Float64 = 0.0001 # proportional to (rotational speed)^2
     lin_coeff_propeller_rotational_drag::Float64 = 0.00001 # proportional to (rotational speed)^2
     lin_coeff_drag::Float64_3 = Float64_3(0.001, 0.001, 0.001)
@@ -35,7 +35,7 @@ end
 end
 
 # Based on: https://andrew.gibiansky.com/downloads/pdf/Quadcopter%20Dynamics,%20Simulation,%20and%20Control.pdf
-function TDS.get_mechanical_reaction(drone::Drone)::Resultant3D
+function TDS.get_force_and_torque(drone::Drone)
     force = Float64_3(0, 0, 0)
     torque = Float64_3(0, 0, 0)
     for i in 1:4
@@ -56,7 +56,7 @@ function TDS.get_mechanical_reaction(drone::Drone)::Resultant3D
     # add gravity force
     force += Float64_3(0, -drone.mass * gravitational_acceleration, 0)
     
-    return Resultant3D(force, torque, drone.pos)
+    return force, torque
 end
 
 function TDS.get_inertia_matrix(drone::Drone)::Float64_3x3

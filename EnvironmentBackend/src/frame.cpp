@@ -23,7 +23,6 @@ ENV_API Frame_ID create_frame(Environment_ID env_id, uint32_t width, uint32_t he
 
 Frame* create_frame(Environment* env, fmt::SwapChain* swap_chain)
 {
-    assert(env);
     Frame* frame = new Frame;
     frame->swap_chain = swap_chain;
     frame->env = env;

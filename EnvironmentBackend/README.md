@@ -23,10 +23,10 @@ This is the backend of `Environment.jl`, which builds on [Google-Filament](https
    This command is mostly copied from the BUILDING.md in the filament directory, the only relevant change is the added `-fPIC` flag for generating Position Independent Code, which is required for building this project as a shared library.
    5. Run Ninja: `ninja`
    
-2. Copy all the libraries from the `filament/out/cmake-release` folder to the `EnvironmentBackend/filament/lib` folder.
-   1. Create the `filament` and `filament/lib` folders inside `EnvironmentBackend/`.
+2. Copy all the libraries from the `filament/out/cmake-release` folder to the `TinyDronesSim/EnvironmentBackend/filament/lib` folder.
+   1. Create the `filament` and `filament/lib` folders inside `TinyDronesSim/EnvironmentBackend/`.
    2. Now return to your `filament` directory and scrape all the libraries you just compiled:  
-      `for file in $(find . -name "*.a"); do cp "$file" <path-to-the-lib-folder>; done`
+      `for file in $(find . -name "*.a"); do cp "$file" <path-to-the-filament-lib-folder>; done`
    Most of these libraries are not used, you can inspect which ones are actually required inside `nob.c` and remove the rest.
 
 ### Building on Linux

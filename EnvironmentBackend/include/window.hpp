@@ -1,4 +1,5 @@
 #include "../environments.hpp"
+#include "SDL_render.h"
 
 #include <cstdint>
 #include <math.hpp>

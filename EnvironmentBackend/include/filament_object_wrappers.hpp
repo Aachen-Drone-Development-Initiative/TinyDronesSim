@@ -19,7 +19,7 @@ struct Filament_Entity {
 namespace filament { namespace gltfio { class FilamentInstance; }}
 
 struct glTF_Instance {
-    glTF_Instance() : gltf_instance(nullptr), associated_env(nullptr), root_entity_id() {}
+    glTF_Instance() : gltf_instance(nullptr), root_entity_id(), associated_env(nullptr) {}
     glTF_Instance(filament::gltfio::FilamentInstance* gltf_instance, Environment* associated_env);
 
     bool is_valid() { return gltf_instance != nullptr; }

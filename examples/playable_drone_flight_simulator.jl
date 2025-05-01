@@ -3,55 +3,52 @@ using StaticStrings
 using Printf
 const Env = TinyDronesSim.Environments
 
+include("simple_drone_declaration.jl")
+
+# Adding all the object that we require for the simulation and visualization
+
 env = Env.create_environment()
+Env.add_ibl_skybox(cstatic"./EnvironmentBackend/assets/rogland_sunset_2k.hdr")
 
 camera = Env.create_camera(env, far_plane = 300.0)
 camera_motion_state = Env.Camera_Motion_State()
-
 window = Env.create_window(camera, cstatic"drone simulation example", target_fps = 60)
 
 drone_camera = Env.create_camera(env)
 window_drone_pov = Env.create_window(drone_camera, cstatic"drone POV")
 
-include("simple_drone_declaration.jl")
 drone = Drone()
 add_renderables(drone)
 
-try
-    Env.add_ibl_skybox(cstatic"./EnvironmentBackend/assets/rogland_sunset_2k.hdr")
-    cool_gltf_asset = Env.add_gltf_asset_and_create_instance(cstatic"./EnvironmentBackend/assets/castle.glb");
+cool_gltf_asset = Env.add_gltf_asset_and_create_instance(cstatic"./EnvironmentBackend/assets/castle.glb");
 
-    # joystick setup
+# joystick setup
 
-    Env.set_active_window(window)
-    
-    if Env.connect_to_joystick()
-        println("Connected to joystick")
-    end
+Env.window_activate(window) # The joystick input should be captured by the main window
 
-    # Call 'Env.generate_joystick_calibration_code()' to generate the below calibration for your controller/joystick.
-    
-    # GENERATED Calibration for my rc-radio
-    if !(Env.is_connected_to_joystick())
-        println("Connect to joystick before executing the calibration routine.")
-    else
-        Env.assign_joystick_axis_idx_to_axis_type(0x03, Env.JOYSTICK_THROTTLE)
-        Env.set_joystick_axis_range(Env.JOYSTICK_THROTTLE, -19325, -4075, 2184)
-        Env.assign_joystick_axis_idx_to_axis_type(0x05, Env.JOYSTICK_YAW)
-        Env.set_joystick_axis_range(Env.JOYSTICK_YAW, -19325, -3490, 2184)
-        Env.assign_joystick_axis_idx_to_axis_type(0x02, Env.JOYSTICK_PITCH)
-        Env.set_joystick_axis_range(Env.JOYSTICK_PITCH, -19325, -3529, 2184)
-        Env.assign_joystick_axis_idx_to_axis_type(0x01, Env.JOYSTICK_ROLL)
-        Env.set_joystick_axis_range(Env.JOYSTICK_ROLL, -19325, -3529, 2184)
-    end
-    # END GENERATED calibration
+if Env.connect_to_joystick()
+    println("INFO: Connected to joystick.")
+else
+    println("ERROR: Failed to connect to joystick, please plug in your joystick and call 'Env.connect_to_joystick()'.")
+end
+
+println("------
+After your joystick is connected, it needs to be calibrated!
+First run 'joy_calib_code = Env.generate_joystick_calibration_code()', which will
+return Julia code that you then need to execute like this 'eval(calibration_code)'
+------")
+
+function sim_loop()
+
+    Env.window_show(window)
+    Env.window_show(window_drone_pov)
 
     run_simulation = false
 
-    while Env.exists(window) || Env.exists(window_drone_pov)
+    while Env.window_visible(window) || Env.window_visible(window_drone_pov)
 
-        if Env.exists(window)
-            Env.set_active_window(window)
+        if Env.window_visible(window)
+            Env.window_activate(window)
 
             if (Env.is_key_pressed(Env.SDL_SCANCODE_SPACE))
                 run_simulation = !run_simulation
@@ -81,7 +78,7 @@ try
 
             if (run_simulation)
                 for i in 1:100
-                    integrate_physics_euler!(drone, (Env.get_last_frame_time_of_window_ms() / 1000.0) / 100.0, 1e-8)
+                    integrate_physics_euler!(drone, (Env.window_get_last_frame_time_ms() / 1000.0) / 100.0, 1e-8)
                 end
             end
             
@@ -90,21 +87,20 @@ try
             camera_motion_state.orbit_center = get_pos(drone) # center the camera around the drone
             Env.update_camera_by_window_input!(camera, camera_motion_state, mode=Env.THIRD_PERSON) # update the camera by mouse and keyboard input
             
-            Env.update_window()
+            Env.window_update()
         end
 
-        if Env.exists(window_drone_pov)
-            Env.set_active_window(window_drone_pov)
+        if Env.window_visible(window_drone_pov)
+            Env.window_activate(window_drone_pov)
 
             # "attach" the drone_camera to the drone
             Env.set_position(Env.get_filament_entity(drone_camera), get_pos(drone))
             # FIXME: The orientation is for some reason not correct, using the 'conjugate' "fixes" things, but this is obviously not ideal
             Env.set_orientation(Env.get_filament_entity(drone_camera), conjugate(get_orientation(drone)))
             
-            Env.update_window()
+            Env.window_update()
         end
     end
-    
-finally
-    Env.destroy_everything()
+
 end
+    

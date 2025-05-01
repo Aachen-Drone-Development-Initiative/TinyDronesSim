@@ -2,7 +2,9 @@ using TinyDronesSim
 using StaticStrings
 using StaticArrays
 
-const libenv = "EnvironmentBackend/build/lib/libenvironment.so"
+libenv = "./EnvironmentBackend/build/lib/libenvironment.so"
+
+set_libenvironment_path(path) = global libenv = path
 
 const INVALID_UUID = 0
 
@@ -31,7 +33,7 @@ exists(env::Environment_ID)::Bool = @ccall libenv.environment_exists(env::Enviro
 destroy(env::Environment_ID)::Bool = @ccall libenv.destroy_environment(env::Environment_ID)::Bool
 
 "Change the 'active environment' to different environment."
-set_active_environment(env::Environment_ID)::Bool = @ccall libenv.set_active_environment(env::Environment_ID)::Bool
+environment_activate(env::Environment_ID)::Bool = @ccall libenv.environment_activate(env::Environment_ID)::Bool
 
 #
 # Adding an Image Based Lighting skybox to the scene.
@@ -155,19 +157,23 @@ end
 exists(window::Window_ID)::Bool = @ccall libenv.window_exists(window::Window_ID)::Bool
 destroy(window::Window_ID)::Bool = @ccall libenv.destroy_window(window::Window_ID)::Bool
 
+window_visible(window::Window_ID)::Bool = @ccall libenv.window_visible(window::Window_ID)::Bool
+window_show(window::Window_ID)::Bool = @ccall libenv.window_show(window::Window_ID)::Bool
+window_hide(window::Window_ID)::Bool = @ccall libenv.window_hide(window::Window_ID)::Bool
+
 "Change the 'active window' to different window."
-set_active_window(window::Window_ID)::Bool = @ccall libenv.set_active_window(window::Window_ID)::Bool
+window_activate(window::Window_ID)::Bool = @ccall libenv.window_activate(window::Window_ID)::Bool
 
 is_active_window_set()::Bool = @ccall libenv.is_active_window_set()::Bool
 
 "Checking for events like keyboard input etc. and rendering the window."
-update_window()::Bool = @ccall libenv.update_window()::Bool
+window_update()::Bool = @ccall libenv.window_update()::Bool
 
 "Get the time between the previous two frames of the active window."
-get_last_frame_time_of_window_ms()::Float64 = @ccall libenv.get_last_frame_time_of_window_ms()::Float64
+window_get_last_frame_time_ms()::Float64 = @ccall libenv.window_get_last_frame_time_ms()::Float64
 
 "Focus input from keyboard, mouse, joystick, etc. to the active window."
-focus_input_to_window()::Bool = @ccall libenv.focus_input_to_window()::UInt8
+window_give_input_focus()::Bool = @ccall libenv.window_give_input_focus()::UInt8
 
 #
 # Window User Input
@@ -238,7 +244,7 @@ end
 "Dont use this function"
 function update_camera_by_window_input_first_person!(camera::Camera_ID, state::Camera_Motion_State, zoom_sensitivity, max_vertical_fov, min_vertical_fov)
     # Zooming
-    scroll_delta_effective = get_mouse_wheel_delta() .* zoom_sensitivity * get_last_frame_time_of_window_ms()
+    scroll_delta_effective = get_mouse_wheel_delta() .* zoom_sensitivity * window_get_last_frame_time_ms()
     prev_fov = get_camera_fov_vertical(camera)
     new_fov = prev_fov + prev_fov * scroll_delta_effective.y
     if (min_vertical_fov <= new_fov <= max_vertical_fov)
@@ -252,7 +258,7 @@ end
 "Dont use this function"
 function update_camera_by_window_input_third_person!(camera::Camera_ID, state::Camera_Motion_State, zoom_sensitivity, max_center_distance, min_center_distance)
     # Zooming
-    scroll_delta_effective = get_mouse_wheel_delta() .* zoom_sensitivity * get_last_frame_time_of_window_ms()
+    scroll_delta_effective = get_mouse_wheel_delta() .* zoom_sensitivity * window_get_last_frame_time_ms()
     new_center_distance = state.center_distance + state.center_distance * scroll_delta_effective.y
     if (min_center_distance <= new_center_distance <= max_center_distance)
         state.center_distance = new_center_distance
@@ -282,7 +288,7 @@ function update_camera_by_window_input!(camera::Camera_ID, state::Camera_Motion_
 
     # Rotation
     if is_mouse_button_down(MOUSE_BUTTON_LEFT)
-        mouse_delta_effective = -get_mouse_delta() .* rotation_sensitivity * get_last_frame_time_of_window_ms()
+        mouse_delta_effective = -get_mouse_delta() .* rotation_sensitivity * window_get_last_frame_time_ms()
         
         orientation_delta_pitch = normed_axis_angle_to_quaternion(mouse_delta_effective.y, Float64_3(1.0, 0.0, 0.0)) # in local coordinate space
         orientation_delta_yaw = normed_axis_angle_to_quaternion(mouse_delta_effective.x, get_camera_up_vector(camera)) # in global coordinate space
@@ -294,18 +300,18 @@ function update_camera_by_window_input!(camera::Camera_ID, state::Camera_Motion_
     
     # Walking
     if is_key_down(SDL_SCANCODE_W)
-        state.orbit_center += get_camera_forward_vector(camera) .* (walk_speed / get_last_frame_time_of_window_ms())
+        state.orbit_center += get_camera_forward_vector(camera) .* (walk_speed / window_get_last_frame_time_ms())
     end
     if is_key_down(SDL_SCANCODE_S)
-        state.orbit_center -= get_camera_forward_vector(camera) .* (walk_speed / get_last_frame_time_of_window_ms())
+        state.orbit_center -= get_camera_forward_vector(camera) .* (walk_speed / window_get_last_frame_time_ms())
     end
     if is_key_down(SDL_SCANCODE_D)
         dir = norm_vector(cross_product(get_camera_forward_vector(camera), get_camera_up_vector(camera)))
-        state.orbit_center += dir .* (walk_speed / get_last_frame_time_of_window_ms())
+        state.orbit_center += dir .* (walk_speed / window_get_last_frame_time_ms())
     end
     if is_key_down(SDL_SCANCODE_A)
         dir = norm_vector(cross_product(get_camera_forward_vector(camera), get_camera_up_vector(camera)))
-        state.orbit_center -= dir .* (walk_speed / get_last_frame_time_of_window_ms())
+        state.orbit_center -= dir .* (walk_speed / window_get_last_frame_time_ms())
     end
 
     # Paning
@@ -379,8 +385,8 @@ function find_dominant_joystick_axis_and_its_max_range()::Tuple{UInt8, Int16, In
 
         # Usually the window is not selected when this is called,
         # so we need to ensure that our window receives the joystick input.
-        focus_input_to_window()
-        update_window()
+        window_give_input_focus()
+        window_update()
     end
 
     # Determine the axis, which has been moved the most
@@ -412,8 +418,13 @@ function generate_joystick_calibration_code()::Expr
     end
 
     if !(is_connected_to_joystick())
-        println("ERROR: Connect to joystick before performing the manual calibration.")
-        return Expr()
+        println("INFO: Trying to connect to the joystick.")
+        if (Env.connect_to_joystick())
+            println("INFO: Connected to the joystick.")
+            return Expr()
+        else
+            println("ERROR: Failed to connect to the joystick.")
+        end
     end
     
     println("Move THROTTLE up and down, reaching min and max.");
@@ -455,8 +466,8 @@ function generate_joystick_calibration_code()::Expr
 
         # Usually the window is not selected when this is called,
         # so we need to ensure that our window receives the joystick input.
-        focus_input_to_window()
-        update_window()
+        window_give_input_focus()
+        window_update()
     end
     
     println("All Done!")

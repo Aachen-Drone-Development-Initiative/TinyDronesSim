@@ -1,6 +1,5 @@
 nob
 nob_config.h
-build/bin
-build/obj
+build/
 filament/
 compile_flags.txt

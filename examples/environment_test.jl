@@ -15,11 +15,9 @@ Env.set_position(Env.get_filament_entity(gltf_instance), Float64_3(50, 0, 0))
 
 Env.add_ibl_skybox(cstatic"./EnvironmentBackend/assets/rogland_sunset_2k.hdr")
 
-try
-    while Env.exists(window)
-        Env.update_camera_by_window_input!(camera, camera_motion_state)
-        Env.update_window()
-    end
-finally
-    Env.destroy_everything()
+while Env.window_visible(window)
+    Env.update_camera_by_window_input!(camera, camera_motion_state)
+    Env.window_update()
 end
+
+Env.destroy_everything()

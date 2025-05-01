@@ -1,4 +1,5 @@
 #include "../environments.hpp"
+#include "SDL_render.h"
 #include <SDL2/SDL_error.h>
 #include <cstddef>
 #include <cstdint>
@@ -76,27 +77,33 @@ ENV_API Window_ID create_window(Camera_ID camera_id, int target_fps, const char*
     }
     SDL_JoystickEventState(SDL_ENABLE);
 
-    uint32_t sdl_window_flags = SDL_WINDOW_SHOWN
-        | SDL_WINDOW_ALLOW_HIGHDPI
-        | SDL_WINDOW_RESIZABLE;
+    uint32_t sdl_window_flags = SDL_WINDOW_SHOWN | SDL_WINDOW_ALLOW_HIGHDPI | SDL_WINDOW_RESIZABLE;
     
-    window->sdl_window = SDL_CreateWindow(name, 0, 0,
-                                          get_camera_image_width(camera),
-                                          get_camera_image_height(camera),
-                                          sdl_window_flags);
-    window->sdl_window_id = SDL_GetWindowID(window->sdl_window);
-    
-    window->frame = create_frame(window->camera->env, window->camera->env->engine->createSwapChain(get_native_window(window->sdl_window)));
+    window->sdl_window = SDL_CreateWindow(name, 0, 0, get_camera_image_width(camera), get_camera_image_height(camera), sdl_window_flags);
+    if (window->sdl_window)
+    {
+        window->sdl_window_id = SDL_GetWindowID(window->sdl_window);
+        window->frame = create_frame(window->camera->env, window->camera->env->engine->createSwapChain(get_native_window(window->sdl_window)));
 
-    Window_ID window_id = g_objm.add_object(window);
-    g_objm.set_active_window(window_id);
+        Window_ID window_id = g_objm.add_object(window);
+        g_objm.window_activate(window_id);
+        
+        return window_id;
+    }
+    else {
+        env_soft_error("SDL Window could not be created.");
+    }
     
-    return window_id;
+    delete window;
+    return {ENV_INVALID_UUID};
 }
 
 Window::~Window()
 {
     delete frame;
+    // FIXME: closing the sdl_window, will for some reason disable rendering to windows created afterwards.
+    // I believe this has something to do with the swap_chain object.
+    // Solution: Render into an opengl texture: https://stunlock.gg/posts/filament_offscreen_renderering/
     SDL_DestroyWindow(sdl_window);
 }
 
@@ -119,7 +126,7 @@ static bool window_process_event(Window* window, SDL_Event event, bool& destroy_
                 
             case SDL_WINDOWEVENT_CLOSE:
                 SDL_HideWindow(window->sdl_window);
-                destroy_this_window = true;
+                // destroy_this_window = true;
                 break;
 
             case SDL_WINDOWEVENT_ENTER:
@@ -194,9 +201,8 @@ static bool window_process_event(Window* window, SDL_Event event, bool& destroy_
     return true;
 }
 
-ENV_API bool update_window()
+ENV_API bool window_update()
 {
-    Window_ID window_id = g_objm.get_active_window_id();
     Window* window = g_objm.get_active_window();
     if (!window) return false;
     
@@ -266,7 +272,7 @@ ENV_API bool update_window()
     return true;
 }
 
-ENV_API double get_last_frame_time_of_window_ms()
+ENV_API double window_get_last_frame_time_ms()
 {
     Window* window = g_objm.get_active_window();
     if (!window) return 0.0;
@@ -274,7 +280,7 @@ ENV_API double get_last_frame_time_of_window_ms()
     return window->last_frame_time_ms;
 }
 
-ENV_API bool focus_input_to_window()
+ENV_API bool window_give_input_focus()
 {
     Window* window = g_objm.get_active_window();
     if (!window) return false;
@@ -380,14 +386,14 @@ ENV_API bool connect_to_joystick()
     if (!window) return false;
 
     if (SDL_NumJoysticks() < 1) {
-        env_soft_error("Couldn't find any joysticks: %s", SDL_GetError());
+        env_soft_error("Couldn't find any joysticks.");
         return false;
     }
 
     window->joystick = SDL_JoystickOpen(0);
     
     if (!window->joystick) {
-        env_soft_error("Couldn't open the joystick: %s", SDL_GetError());
+        env_soft_error("Couldn't open the joystick SDL_ERROR: %s", SDL_GetError());
         return false;
     }
     return true;
@@ -478,4 +484,32 @@ ENV_API double get_joystick_axis_mapped_value(Joystick_Axis axis_type)
                          (double)window->input.joystick_axes_types_raw_max[axis_type],
                          0.0, 1.0);
     }
+}
+
+ENV_API bool window_visible(Window_ID window_id)
+{
+    Window* window = g_objm.get_object(window_id);
+    if (!window) return false;
+
+    return window->is_visible;
+}
+
+ENV_API bool window_show(Window_ID window_id)
+{
+    Window* window = g_objm.get_object(window_id);
+    if (!window) return false;
+
+    SDL_ShowWindow(window->sdl_window);
+    window->is_visible = true;
+    return true;
+}
+
+ENV_API bool window_hide(Window_ID window_id)
+{
+    Window* window = g_objm.get_object(window_id);
+    if (!window) return false;
+
+    SDL_HideWindow(window->sdl_window);
+    window->is_visible = false;
+    return true;
 }

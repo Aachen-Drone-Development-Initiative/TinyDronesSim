@@ -19,7 +19,7 @@ int main()
 
     set_position(get_gltf_instance_filament_entity(gltf_instance), {-1, -2, -3});
     
-    [[maybe_unused]] UUID gltf_instance_sib1 = create_gltf_instance_sibling(gltf_instance);
+    [[maybe_unused]] glTF_Instance_ID gltf_instance_sib1 = create_gltf_instance_sibling(gltf_instance);
 
     add_lit_material("base_lit");
     
@@ -27,10 +27,10 @@ int main()
     
     add_ibl_skybox("./assets/rogland_sunset_2k.hdr");
 
-    while(window_exists(window) || window_exists(second_window))
+    while(window_visible(window) || window_visible(second_window))
     {
-        if (window_exists(window)) {
-            set_active_window(window);
+        if (window_visible(window)) {
+            window_activate(window);
             
             if (is_key_pressed(SDL_SCANCODE_SPACE)) {
                 std::cout << "trying to connect: " << connect_to_joystick() << '\n';
@@ -38,12 +38,12 @@ int main()
             if (is_connected_to_joystick()) {
                 std::cout << "axis 0: " << get_joystick_axis_raw(0) << '\n';
             }
-            update_window();
+            window_update();
         }
-
-        if (window_exists(second_window)) {
-            set_active_window(second_window);
-            update_window();
+        
+        if (window_visible(second_window)) {
+            window_activate(second_window);
+            window_update();
         }
     }
 
