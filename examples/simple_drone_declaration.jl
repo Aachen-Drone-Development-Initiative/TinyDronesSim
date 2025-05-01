@@ -1,5 +1,6 @@
 using TinyDronesSim
 using StaticArrays
+using StaticStrings
 const TDS = TinyDronesSim
 const Env = TinyDronesSim.Environments
 
@@ -31,7 +32,6 @@ end
 
     # stuff for visualization
     gltf_model_instance::Env.glTF_Instance_ID = Env.glTF_Instance_ID()
-    trail::Vector{Float32_3} = Vector{Float32_3}(undef, 400) # For rendering (and especially with GPUs) 32-bit floats are the standard
 end
 
 # Based on: https://andrew.gibiansky.com/downloads/pdf/Quadcopter%20Dynamics,%20Simulation,%20and%20Control.pdf

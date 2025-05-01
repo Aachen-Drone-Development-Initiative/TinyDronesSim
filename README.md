@@ -40,17 +40,24 @@ TinyDronesSim is a tool for simulating the *tinydrone*.
 
 ## Using TinyDronesSim
 
+At the center of the TinyDronesSim-Workflow is the Julia-REPL (the Julia command line interface).
+You should get to know the Julia-REPL it's very powerful.  
+Here are some resouces:
+- Julia REPL Mastery Workshop: https://www.youtube.com/watch?v=bHLXEUt5KLc&t=2475s
+- If you prefer reading: https://github.com/miguelraz/REPLMasteryWorkshop
+Some important basics:
+- `varinfo()` - show all global variables, structs, functions
 
+#### Basic Workflow example
 
-## TODOS
-- [x] Bugs with high fps (much faster walking and simulation)
-- [x] implement `set_active_environment()`
-- [x] Line drawing
-- [x] fix annoying unsafe_convert to Cstring
-- [x] change material parameter to material name of previously added material instead of settings fro new material
-- [x] Better internal managing of objects (destroy all option + hash-stored id instead of pointer)
-- [x] Replace *_Settings structs with function arguments
-- [x] reimplement activating things like environment and window (to avoid stupid UUID conversion)
-- [x] add controller input support
-- [x] Refactor single robin_map to many maps, one for each object type, while keeping UUID
-- [] implement Mesh constructor
+1. Create a .jl file (let's call it `defs.jl`) for your definitions of objects and their functions. 
+   Get inspiration from `./examples/simple_drone_declaration.jl`
+2. Create another .jl (let's call it `objs.jl`) where you create all global objects, for example `env = Env.create_environment()` or `drone = MyDrone()`.
+   Here you can also create your `sim_loop()` function for showing and updating your window(s) and advancing the simulation.
+   Get inspiration from `./examples/simple_drone_simulation.jl`
+3. Start the Julia REPL and `include("defs.jl")` `include("objs.jl")`.
+4. Run the `sim_loop()`, stop the sim, inspect some values, plot some things, change some functions in `defs.jl`, reinclude `defs.jl`.
+   Run the sim, have an idea that requires a new object field, stop the sim, make the change, restart Julia
+   reinclude `defs.jl` and `objs.jl` run the sim ...
+   
+Sadly, when changing structs, you need to restart Julia (This will be fixed with Julia 1.12.0).

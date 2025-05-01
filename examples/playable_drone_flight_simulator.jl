@@ -45,6 +45,7 @@ function sim_loop()
 
     run_simulation = false
 
+    # When the window is closed or minimized, it's considered to be invisible
     while Env.window_visible(window) || Env.window_visible(window_drone_pov)
 
         if Env.window_visible(window)
