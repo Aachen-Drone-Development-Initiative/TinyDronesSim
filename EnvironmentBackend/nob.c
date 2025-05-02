@@ -159,8 +159,9 @@ bool build_google_filament(Cmd *cmd)
 
     const char* prev_dir = enter_folder(FILAMENT_BUILD_DIR FILAMENT_BUILD_RELEASE_FOLDER);
 
-    cmd_append(cmd, "cmake", "-G", "Ninja",
-               "-DCMAKE_CXX_COMPILER=clang++", "-DCMAKE_C_COMPILER=clang",
+    cmd_append(cmd, "cmake", "-G", "Unix Makefiles",
+               "-DCMAKE_CXX_COMPILER=clang++",
+               "-DCMAKE_C_COMPILER=clang",
                "-DCMAKE_BUILD_TYPE=Release",
                "-DCMAKE_INSTALL_PREFIX=../release/filament",
                "-DCMAKE_CXX_FLAGS=\"-fPIC\"",
@@ -171,7 +172,8 @@ bool build_google_filament(Cmd *cmd)
         goto exit;
     }
 
-    cmd_append(cmd, "ninja");
+    // 8 concurrent jobs is a good number of jobs
+    cmd_append(cmd, "make", "-j", "8");
     if (!cmd_run_sync_and_reset(cmd)) {
         result = false;
         goto exit;

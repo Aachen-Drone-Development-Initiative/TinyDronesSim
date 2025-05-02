@@ -21,14 +21,14 @@ TinyDronesSim is a tool for simulating the *tinydrone*.
       - `libglu1-mesa-dev`
       - `libc++-14-dev` (`libcxx-devel` and `libcxx-static` on Fedora) **or higher**
       - `libc++abi-14-dev` (`libcxxabi-static` on Fedora) **or higher**
-      - `ninja-build`
+      - `make`
       - `libxi-dev`
       - `libxcomposite-dev` (`libXcomposite-devel` on Fedora)
       - `libxxf86vm-dev` (`libXxf86vm-devel` on Fedora)
    4. Compile `nob.c` with your favorite C-compiler. You only have to do this once, `nob.c` recompiles automatically when changed.
       - `cc nob.c -o nob` should work on Linux.
       - *Optionally* do `./nob help` to learn more about this build tool.
-   5. Compile Goolge-Filament. *This might take a while (10-20 mins).* **AND** compile `libenvironment.so`.
+   5. Compile Goolge-Filament **AND** `libenvironment.so`.
       - `./nob filament libenv`
    7. `cd ..` return to the `TinyDronesSim/` directory 
 3. Install [Julia](https://julialang.org/install/).
