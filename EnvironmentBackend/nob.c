@@ -32,12 +32,17 @@
 #define FILAMENT_STB_INCLUDE_PATH           "./filament/third_party/stb/"
 #define FILAMENT_ROBIN_MAP_INCLUDE_PATH     "./filament/third_party/robin-map/"
 
-#define FILAMENT_LIBS        "./filament/libs/"
-#define FILAMENT_THIRD_PARTY "./filament/third_party/"
 
-#define FILAMENT_LIB_PATH         "./filament/filament/"
-#define FILAMENT_BACKEND_LIB_PATH "./filament/filament/backend/"
-#define FILAMENT_SHADERS_LIB_PATH "./filament/shaders/"
+#define FILAMENT_BUILD_DIR "./filament/out/"
+#define FILAMENT_BUILD_RELEASE_FOLDER "cmake-release/"
+#define FILAMENT_BUILD_DEBUG_FOLDER "cmake-debug/"
+
+#define FILAMENT_LIBS        FILAMENT_BUILD_DIR FILAMENT_BUILD_RELEASE_FOLDER "libs/"
+#define FILAMENT_THIRD_PARTY FILAMENT_BUILD_DIR FILAMENT_BUILD_RELEASE_FOLDER "third_party/"
+
+#define FILAMENT_LIB_PATH         FILAMENT_BUILD_DIR FILAMENT_BUILD_RELEASE_FOLDER "filament/"
+#define FILAMENT_BACKEND_LIB_PATH FILAMENT_BUILD_DIR FILAMENT_BUILD_RELEASE_FOLDER "filament/backend/"
+#define FILAMENT_SHADERS_LIB_PATH FILAMENT_BUILD_DIR FILAMENT_BUILD_RELEASE_FOLDER "shaders/"
 
 #define FILAMENT_BLUEGL_LIB_PATH        FILAMENT_LIBS "bluegl/"
 #define FILAMENT_BLUEVK_LIB_PATH        FILAMENT_LIBS "bluevk/"
@@ -146,16 +151,21 @@ void build_success(const char* target_name)
 
 bool build_google_filament(Cmd *cmd)
 {
-    const char* prev_dir = enter_folder("filament");
 
     bool result = true;
+
+    if (!mkdir_if_not_exists(FILAMENT_BUILD_DIR)) return 1;
+    if (!mkdir_if_not_exists(FILAMENT_BUILD_DIR FILAMENT_BUILD_RELEASE_FOLDER)) return 1;
+
+    const char* prev_dir = enter_folder(FILAMENT_BUILD_DIR FILAMENT_BUILD_RELEASE_FOLDER);
 
     cmd_append(cmd, "cmake", "-G", "Ninja",
                "-DCMAKE_CXX_COMPILER=clang++", "-DCMAKE_C_COMPILER=clang",
                "-DCMAKE_BUILD_TYPE=Release",
                "-DCMAKE_INSTALL_PREFIX=../release/filament",
-               "-DCMAKE_CXX_FLAGS=\"-stdlib=libc++ -fPIC\"",
-               "-DCMAKE_C_FLAGS=\"-fPIC\"");
+               "-DCMAKE_CXX_FLAGS=\"-fPIC\"",
+               "-DCMAKE_C_FLAGS=\"-fPIC\"",
+               "../..");
     if (!cmd_run_sync_and_reset(cmd)) {
         result = false;
         goto exit;
