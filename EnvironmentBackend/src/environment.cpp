@@ -36,7 +36,7 @@
 namespace futils = utils;
 namespace fmath = filament::math;
 
-#define ASSET_PATH "/home/yuzeni/projekte/TinyDronesSim/EnvironmentBackend/assets/"
+#define ASSET_PATH "../EnvironmentBackend/assets/"
 #define DEFAULT_LIT_MATERIAL_PATH ASSET_PATH "sandboxLit.filamat"
 #define DEFAULT_UNLIT_MATERIAL_PATH ASSET_PATH "sandboxUnlit.filamat"
 
