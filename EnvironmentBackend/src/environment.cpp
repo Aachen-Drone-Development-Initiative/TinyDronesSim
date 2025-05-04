@@ -36,7 +36,8 @@
 namespace futils = utils;
 namespace fmath = filament::math;
 
-#define ASSET_PATH "../EnvironmentBackend/assets/"
+#define ASSET_PATH "./EnvironmentBackend/assets/"
+
 #define DEFAULT_LIT_MATERIAL_PATH ASSET_PATH "sandboxLit.filamat"
 #define DEFAULT_UNLIT_MATERIAL_PATH ASSET_PATH "sandboxUnlit.filamat"
 
@@ -91,7 +92,14 @@ Environment_ID create_environment()
     env->scene = env->engine->createScene();
     
     env->base_lit_material = load_material_from_file(env->engine, DEFAULT_LIT_MATERIAL_PATH);
+    if (!env->base_lit_material) {
+        return {ENV_INVALID_UUID};
+    }
+    
     env->base_unlit_material = load_material_from_file(env->engine, DEFAULT_UNLIT_MATERIAL_PATH);
+    if (!env->base_unlit_material) {
+        return {ENV_INVALID_UUID};
+    }
 
     env->gltf.material_provider = fgltfio::createJitShaderProvider(env->engine);
     env->gltf.texture_provider = fgltfio::createStbProvider(env->engine);
@@ -204,8 +212,7 @@ Filament_Entity_ID add_filamesh_from_file(const char* path)
     Environment* env = g_objm.get_active_environment();
     if (!env) return {ENV_INVALID_UUID};
     
-    fmesh::MeshReader::Mesh mesh = filamesh::MeshReader::loadMeshFromFile(
-        env->engine, futils::Path(path), env->material_registry);
+    fmesh::MeshReader::Mesh mesh = filamesh::MeshReader::loadMeshFromFile(env->engine, futils::Path(path), env->material_registry);
 
     env->scene->addEntity(mesh.renderable);
 
