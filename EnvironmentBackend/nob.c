@@ -69,7 +69,7 @@
 
 #define ENVLIB_TARGET_NAME "libenvironment.so"
 
-#define FILAMENT_MATC_EXECUTABLE_PATH "./filament/tools/matc/matc"
+#define FILAMENT_MATC_EXECUTABLE_PATH FILAMENT_BUILD_DIR FILAMENT_BUILD_RELEASE_FOLDER "tools/matc/matc"
 
 #define cmd_append_static_array(cmd, array)          \
     do {                                             \
@@ -149,11 +149,33 @@ void build_success(const char* target_name)
     printf("\nSuccessfully built '%s'!\n\n", target_name);
 }
 
+bool compile_filament_materials(Cmd *cmd)
+{
+    const char* materials[] = {
+        "./assets/sandboxLit",
+        "./assets/sandboxUnlit"
+    };
+
+    for (int i = 0; i < ARRAY_LEN(materials); ++i) {
+        String_Builder in = {0};
+        sb_append_cstr(&in, materials[i]);
+        sb_append_cstr(&in, ".mat");
+        sb_append_null(&in);
+        String_Builder out = {0};
+        sb_append_cstr(&out, materials[i]);
+        sb_append_cstr(&out, ".filamat");
+        sb_append_null(&out);
+        cmd_append(cmd, FILAMENT_MATC_EXECUTABLE_PATH, "-o", out.items, in.items);
+        if (!cmd_run_sync_and_reset(cmd)) return false;
+        sb_free(in);
+        sb_free(out);
+    }
+
+    return true;
+}
+
 bool build_google_filament(Cmd *cmd)
 {
-
-    bool result = true;
-
     if (!mkdir_if_not_exists(FILAMENT_BUILD_DIR)) return 1;
     if (!mkdir_if_not_exists(FILAMENT_BUILD_DIR FILAMENT_BUILD_RELEASE_FOLDER)) return 1;
 
@@ -168,21 +190,25 @@ bool build_google_filament(Cmd *cmd)
                "-DCMAKE_C_FLAGS=\"-fPIC\"",
                "../..");
     if (!cmd_run_sync_and_reset(cmd)) {
-        result = false;
-        goto exit;
+        set_current_dir(prev_dir);
+        return false;
     }
 
     // 8 concurrent jobs is a good number of jobs
     cmd_append(cmd, "make", "-j", "8");
     if (!cmd_run_sync_and_reset(cmd)) {
-        result = false;
-        goto exit;
+        set_current_dir(prev_dir);
+        return false;
     }
-    
-exit:
+
     set_current_dir(prev_dir);
-    if (result) build_success("Goolge-Filament");
-    return result;
+
+    // We need to rebuild the materials, in case the filament material version was updated.
+    // Otherwise Filament will complain when loading materials with an older version.
+    if (!compile_filament_materials(cmd)) return false;
+    
+    build_success("Goolge-Filament");
+    return true;
 }
 
 bool build_libenvironment_shared(Cmd *cmd)
@@ -326,30 +352,6 @@ bool build_libenvironment_shared_test(Cmd *cmd)
 
     build_success("libenvironment_test");
 
-    return true;
-}
-
-bool compile_filament_materials(Cmd *cmd)
-{
-    const char* materials[] = {
-        "./assets/sandboxLit",
-        "./assets/sandboxUnlit"
-    };
-
-    for (int i = 0; i < ARRAY_LEN(materials); ++i) {
-        String_Builder in = {0};
-        sb_append_cstr(&in, materials[i]);
-        sb_append_cstr(&in, ".mat");
-        sb_append_null(&in);
-        String_Builder out = {0};
-        sb_append_cstr(&out, materials[i]);
-        sb_append_cstr(&out, ".filamat");
-        sb_append_null(&out);
-        cmd_append(cmd, FILAMENT_MATC_EXECUTABLE_PATH, "-o", out.items, in.items);
-        if (!cmd_run_sync_and_reset(cmd)) return false;
-        sb_free(in);
-        sb_free(out);
-    }
     return true;
 }
 
