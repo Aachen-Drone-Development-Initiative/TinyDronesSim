@@ -15,6 +15,7 @@ const INVALID_UUID = 0
 @kwdef struct Window_ID id::UInt64 = INVALID_UUID end
 @kwdef struct Filament_Entity_ID id::UInt64 = INVALID_UUID end
 @kwdef struct glTF_Instance_ID id::UInt64 = INVALID_UUID end
+@kwdef struct Material_Instance_ID id::UInt64 = INVALID_UUID end
 
 #
 # State Handling

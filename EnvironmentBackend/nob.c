@@ -7,6 +7,7 @@
 
 // Need to use clang and libc++, because filament is build with clang.
 #define CXX "clang++"
+#define CC "clang"
 #define CPPFLAGS "-std=c++17", "-stdlib=libc++", "-Wall", "-Wextra", "-Wno-return-type-c-linkage", "-g"
 
 #define PROJECT_NAME "TinyDronesSim-EnvironmentBackend"
@@ -18,6 +19,11 @@
 #define SRC_FOLDER "src/"
 #define TESTS_FOLDER "tests/"
 #define INCLUDE_FOLDER "include/"
+#define ASSET_FOLDER "assets/"
+#define EXTERN_FOLDER "extern/"
+
+#define STRLITERAL_TARGET_NAME "strliteral"
+#define STRLITERAL_EXECUTABLE_PATH BUILD_FOLDER BIN_FOLDER STRLITERAL_TARGET_NAME
 
 #define FILAMENT_INCLUDE_PATH               "./filament/filament/include/"
 #define FILAMENT_BACKEND_INCLUDE_PATH       "./filament/filament/backend/include/"
@@ -31,7 +37,6 @@
 #define FILAMENT_SDL2_INCLUDE_PATH          "./filament/third_party/libsdl2/include/"
 #define FILAMENT_STB_INCLUDE_PATH           "./filament/third_party/stb/"
 #define FILAMENT_ROBIN_MAP_INCLUDE_PATH     "./filament/third_party/robin-map/"
-
 
 #define FILAMENT_BUILD_DIR "./filament/out/"
 #define FILAMENT_BUILD_RELEASE_FOLDER "cmake-release/"
@@ -149,28 +154,43 @@ void build_success(const char* target_name)
     printf("\nSuccessfully built '%s'!\n\n", target_name);
 }
 
-bool compile_filament_materials(Cmd *cmd)
+bool compile_and_embed_filament_materials(Cmd *cmd)
 {
     const char* materials[] = {
         "./assets/sandboxLit",
         "./assets/sandboxUnlit"
     };
 
-    for (int i = 0; i < ARRAY_LEN(materials); ++i) {
-        String_Builder in = {0};
-        sb_append_cstr(&in, materials[i]);
-        sb_append_cstr(&in, ".mat");
-        sb_append_null(&in);
-        String_Builder out = {0};
-        sb_append_cstr(&out, materials[i]);
-        sb_append_cstr(&out, ".filamat");
-        sb_append_null(&out);
-        cmd_append(cmd, FILAMENT_MATC_EXECUTABLE_PATH, "-o", out.items, in.items);
-        if (!cmd_run_sync_and_reset(cmd)) return false;
-        sb_free(in);
-        sb_free(out);
-    }
+    for (int i = 0; i < ARRAY_LEN(materials); ++i)
+    {
+        String_Builder mat_str = {0};
+        sb_append_cstr(&mat_str, materials[i]);
+        sb_append_cstr(&mat_str, ".mat");
+        sb_append_null(&mat_str);
+        
+        String_Builder filamat_str = {0};
+        sb_append_cstr(&filamat_str, materials[i]);
+        sb_append_cstr(&filamat_str, ".filamat");
+        sb_append_null(&filamat_str);
 
+        cmd_append(cmd, FILAMENT_MATC_EXECUTABLE_PATH, "-o", filamat_str.items, mat_str.items);
+        if (!cmd_run_sync_and_reset(cmd)) return false;
+
+        String_Builder cpp_str = {0};
+        sb_append_cstr(&cpp_str, materials[i]);
+        sb_append_cstr(&cpp_str, ".cpp");
+        sb_append_null(&cpp_str);
+        
+        cmd_append(cmd, STRLITERAL_EXECUTABLE_PATH, filamat_str.items, cpp_str.items);
+        if (!cmd_run_sync_and_reset(cmd)) return false;
+
+        delete_file(filamat_str.items); // We don't need the .filamat file
+
+        sb_free(mat_str);
+        sb_free(filamat_str);
+        sb_free(cpp_str);
+    }
+    
     return true;
 }
 
@@ -205,9 +225,18 @@ bool build_google_filament(Cmd *cmd)
 
     // We need to rebuild the materials, in case the filament material version was updated.
     // Otherwise Filament will complain when loading materials with an older version.
-    if (!compile_filament_materials(cmd)) return false;
+    if (!compile_and_embed_filament_materials(cmd)) return false;
     
     build_success("Goolge-Filament");
+    return true;
+}
+
+bool build_strliteral_binary_to_c_converter(Cmd *cmd)
+{
+    cmd_append(cmd, "clang", EXTERN_FOLDER "strliteral.c", "-o", STRLITERAL_TARGET_NAME);
+    if (!cmd_run_sync_and_reset(cmd)) return false;
+
+    move_local_file_to_folder(STRLITERAL_TARGET_NAME, BUILD_FOLDER BIN_FOLDER);
     return true;
 }
 
@@ -243,7 +272,11 @@ bool build_libenvironment_shared(Cmd *cmd)
         SRC_FOLDER "mesh.cpp",
         SRC_FOLDER "object_manager.cpp",
         SRC_FOLDER "stb_image.cpp",
-        SRC_FOLDER "window.cpp"
+        SRC_FOLDER "window.cpp",
+        
+        // from binaries generated cpp files
+        ASSET_FOLDER "sandboxLit.cpp",
+        ASSET_FOLDER "sandboxUnlit.cpp",
     };
 
     cmd_append_static_array(cmd, source_files);
@@ -363,11 +396,13 @@ void print_help()
         "Learn more about 'nob.h' here: https://github.com/tsoding/nob.h\n\n"
         "ARGUMENTS:\n\n"
         "  'help'        Print this help message.\n"
+        "  'all'         Build everything\n"
         "  'filament'    Build Google-Filament. Make sure to install the dependencies first!!\n"
         "  'libenv'      Build 'libenvironment.so' .\n"
         "  'clean'       Clean the build.\n"
         "  'tests'       Build the tests.\n"
-        "  'materials'   Compile the materials (.mat to .filamat).\n";
+        "  'materials'   Compile the materials (.mat to .filamat).\n"
+        "  'strliteral'  Build strliteral.c, a tool for converting binary data into C (string-literals)\n";
     
     printf("%s", help_message);
 }
@@ -391,6 +426,7 @@ int main(int argc, char **argv)
     bool build_tests = false;
     bool compile_materials = false;
     bool build_filament = false;
+    bool build_strliteral = false;
 
     // No arguments means, nothing will happen.
     if (argc == 0) {
@@ -422,6 +458,16 @@ int main(int argc, char **argv)
         else if (!strcmp(nob_cmd, "materials")) {
             compile_materials = true; 
         }
+        else if (!strcmp(nob_cmd, "strliteral")) {
+            build_strliteral = true; 
+        }
+        else if (!strcmp(nob_cmd, "all")) {
+            build_libenv = true; 
+            build_tests = true; 
+            build_filament = true;
+            compile_materials = true; 
+            build_strliteral = true; 
+        }
         else {
             nob_log(ERROR, "Unrecognized command '%s'\n", nob_cmd);
             print_help();
@@ -438,12 +484,16 @@ int main(int argc, char **argv)
     if (!mkdir_if_not_exists(BUILD_FOLDER BIN_FOLDER)) return 1;
     if (!mkdir_if_not_exists(BUILD_FOLDER LIB_FOLDER)) return 1;
 
-    if (build_libenv) {
-        if (!build_libenvironment_shared(&cmd)) return 1;
+    if (compile_materials) {
+        if (!compile_and_embed_filament_materials(&cmd)) return 1;
     }
 
-    if (compile_materials) {
-        if (!compile_filament_materials(&cmd)) return 1;
+    if (build_strliteral) {
+        if (!build_strliteral_binary_to_c_converter(&cmd)) return 1;
+    }
+
+    if (build_libenv) {
+        if (!build_libenvironment_shared(&cmd)) return 1;
     }
 
     if (build_tests) {

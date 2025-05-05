@@ -1,0 +1,4 @@
+Remove ASSET_PATH, dont include any default materails, make it easy to create materials.
+Make all the environment-objects (window, frame, camera, ...) c++-classes
+Do the SDL Init only once in window class and
+Figure out how to do meshes in filament, we need a line mesh which can be updated. line-segments shouldn't be single entities!!

@@ -4,6 +4,7 @@
 int main()
 {
     Environment_ID env = create_environment();
+    std::cout << "env id: " << env.id << '\n';
     Camera_ID camera = create_camera(env);
     Camera_ID second_camera = create_camera(env);
     

@@ -25,6 +25,7 @@ struct Camera_ID : public UUID {};
 struct Window_ID : public UUID {};
 struct Filament_Entity_ID : public UUID {};
 struct glTF_Instance_ID : public UUID {};
+struct Material_Instance_ID : public UUID {};
 
 /*
  * General Object Management
@@ -48,6 +49,15 @@ ENV_API bool environment_activate(Environment_ID env_id);
  * Most image formats are supported, though you should use HDR images.
  */
 ENV_API bool add_ibl_skybox(const char* file_path);
+
+enum Material_Parameter_Types : uint8_t {
+    MAT_FLOAT32   = 1,
+    MAT_FLOAT32_3 = 2,
+    MAT_FLOAT32_4 = 3
+};
+
+// Format of the variadic arguments: ..., const char* param_name, Material_Parameter_Types param_type, Type value, ...
+ENV_API bool add_material_and_create_instance(const char* filamat_path, const char* material_name, ...);
 
 ENV_API bool add_lit_material(const char* material_name,
                               float3 base_color = { 1.00f, 1.00f, 1.00f },

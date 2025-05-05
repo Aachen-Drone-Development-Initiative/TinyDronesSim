@@ -2,6 +2,7 @@
 #include "filament_object_wrappers.hpp"
 #include <environment.hpp>
 
+#include <embedded_asset_info.hpp>
 #include <camera.hpp>
 #include <math.hpp>
 #include <logging.hpp>
@@ -36,11 +37,6 @@
 namespace futils = utils;
 namespace fmath = filament::math;
 
-#define ASSET_PATH "./EnvironmentBackend/assets/"
-
-#define DEFAULT_LIT_MATERIAL_PATH ASSET_PATH "sandboxLit.filamat"
-#define DEFAULT_UNLIT_MATERIAL_PATH ASSET_PATH "sandboxUnlit.filamat"
-
 constexpr filament::backend::Backend ENGINE_BACKEND = fmt::Engine::Backend::OPENGL;
 
 static bool read_entire_file(const char* path, uint8_t** data, size_t* size)
@@ -66,21 +62,12 @@ static bool read_entire_file(const char* path, uint8_t** data, size_t* size)
     }
 }
 
-static fmt::Material* load_material_from_file(filament::Engine* engine, const char* path)
+static fmt::Material* load_material_from_buffer(filament::Engine* engine, const uint8_t* buffer, unsigned int size)
 {
-    fmt::Material* material = nullptr;
-
-    size_t size = 0;
-    uint8_t* data = nullptr;
-
-    if (read_entire_file(path, &data, &size)) {
-        material = fmt::Material::Builder().package(data, size).build(*engine);
-        delete[] data;
+    fmt::Material* material = fmt::Material::Builder().package(buffer, size).build(*engine);
+    if (!material) {
+        env_soft_error("Failed to load material");
     }
-    else {
-        env_soft_error("Failed to load material",  material);
-    }
-    
     return material;
 }
 
@@ -91,12 +78,12 @@ Environment_ID create_environment()
     env->engine = fmt::Engine::create(ENGINE_BACKEND);
     env->scene = env->engine->createScene();
     
-    env->base_lit_material = load_material_from_file(env->engine, DEFAULT_LIT_MATERIAL_PATH);
+    env->base_lit_material = load_material_from_buffer(env->engine, __assets_sandboxLit_filamat, __assets_sandboxLit_filamat_len);
     if (!env->base_lit_material) {
         return {ENV_INVALID_UUID};
     }
-    
-    env->base_unlit_material = load_material_from_file(env->engine, DEFAULT_UNLIT_MATERIAL_PATH);
+
+    env->base_unlit_material = load_material_from_buffer(env->engine, __assets_sandboxUnlit_filamat, __assets_sandboxUnlit_filamat_len);
     if (!env->base_unlit_material) {
         return {ENV_INVALID_UUID};
     }
