@@ -43,6 +43,7 @@ int main(int argc, char **argv) {
 	char *ident = NULL;
 	char *buffer = NULL;
 	char *conststr = "const ";
+        char *volatilestr = "";
 	int alwaysescape = 0;
 	size_t maxlength = 100;
 
@@ -58,6 +59,8 @@ int main(int argc, char **argv) {
 			goto exit;
 		} else if (strcmp(arg, "--no-const") == 0) {
 			conststr = "";
+                } else if (strcmp(arg, "--volatile") == 0) {
+                        volatilestr = "volatile ";
 		} else if (strcmp(arg, "--always-escape") == 0) {
 			alwaysescape = 1;
 		} else if (strcmp(arg, "--line-length") == 0 || strcmp(arg, "-l") == 0) {
@@ -110,7 +113,7 @@ int main(int argc, char **argv) {
 		goto fail;
 	}
 
-	if (fprintf(outf, "%sunsigned char %s[] =\n\t\"", conststr, ident) < 0) {
+	if (fprintf(outf, "%s%sunsigned char %s[] =\n\t\"", volatilestr, conststr, ident) < 0) {
 		perror("write d");
 		goto fail;
 	}
@@ -179,8 +182,8 @@ int main(int argc, char **argv) {
 		goto fail;
 	}
 
-	if (fprintf(outf, "\";\n%sunsigned int %s_len = %u;\n",
-				conststr, ident, (unsigned int)length) < 0) {
+	if (fprintf(outf, "\";\n%s%sunsigned int %s_len = %u;\n",
+                    volatilestr, conststr, ident, (unsigned int)length) < 0) {
 		perror("write c");
 		goto fail;
 	}

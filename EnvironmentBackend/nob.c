@@ -181,7 +181,7 @@ bool compile_and_embed_filament_materials(Cmd *cmd)
         sb_append_cstr(&cpp_str, ".cpp");
         sb_append_null(&cpp_str);
         
-        cmd_append(cmd, STRLITERAL_EXECUTABLE_PATH, filamat_str.items, cpp_str.items);
+        cmd_append(cmd, STRLITERAL_EXECUTABLE_PATH, "--volatile", filamat_str.items, cpp_str.items);
         if (!cmd_run_sync_and_reset(cmd)) return false;
 
         delete_file(filamat_str.items); // We don't need the .filamat file
@@ -483,13 +483,13 @@ int main(int argc, char **argv)
     if (!mkdir_if_not_exists(BUILD_FOLDER OBJ_FOLDER)) return 1; 
     if (!mkdir_if_not_exists(BUILD_FOLDER BIN_FOLDER)) return 1;
     if (!mkdir_if_not_exists(BUILD_FOLDER LIB_FOLDER)) return 1;
+    
+    if (build_strliteral) {
+        if (!build_strliteral_binary_to_c_converter(&cmd)) return 1;
+    }
 
     if (compile_materials) {
         if (!compile_and_embed_filament_materials(&cmd)) return 1;
-    }
-
-    if (build_strliteral) {
-        if (!build_strliteral_binary_to_c_converter(&cmd)) return 1;
     }
 
     if (build_libenv) {
