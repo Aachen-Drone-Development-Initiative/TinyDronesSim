@@ -1,0 +1,640 @@
+#define NOB_IMPLEMENTATION
+#define NOB_STRIP_PREFIX
+#define NOB_EXPERIMENTAL_DELETE_OLD
+#include "nob.h"
+
+/* #define DEBUG_BUILD */
+#define RELEASE_BUILD
+
+// We need to use clang and libc++, because filament is built with clang.
+#define CXX "clang++"
+#define CC "clang"
+
+#ifdef DEBUG_BUILD
+    #define CPPFLAGS "-std=c++17", "-stdlib=libc++", "-Wall", "-Wextra", "-Wno-return-type-c-linkage", "-g" //, "-fsanitize=undefined"
+#else
+    #define CPPFLAGS "-std=c++17", "-stdlib=libc++", "-Wall", "-Wextra", "-Wno-return-type-c-linkage", "-O3"
+#endif
+
+#define PROJECT_NAME "TinyDronesSimBackend"
+#define TDSLIB_TARGET_NAME "libtds.so"
+
+#define INCLUDE_DIR     "./include/"
+#define SRC_DIR         "./src/"
+#define TESTS_DIR       "./tests/"
+#define EXPERIMENTS_DIR "./tests/experiments/"
+#define ASSET_DIR       "./assets/"
+#define EXTERN_DIR      "./extern/"
+#define BUILD_DIR       "./build/"
+
+#define OBJ_FOLDER "obj/"
+#define BIN_FOLDER "bin/"
+#define LIB_FOLDER "lib/"
+
+#define cmd_append_static_array(cmd, array)          \
+    do {                                             \
+        for (int i = 0; i < ARRAY_LEN(array); ++i) { \
+            cmd_append(cmd, array[i]);               \
+        }                                            \
+    } while (0);
+
+const char *get_file_ext(const char *filename) {
+    const char *dot = strrchr(filename, '.');
+    if(!dot || dot == filename) {
+        return "";
+    }
+    return dot + 1;
+}
+
+bool has_file_ext(const char *filename, const char *ext)
+{
+    return !strcmp(get_file_ext(filename), ext);
+}
+
+void cmd_append_files_with_ext(Cmd *cmd, File_Paths file_paths, const char *ext)
+{
+    for (int i = 0; i < file_paths.count; ++i) {
+        if (has_file_ext(file_paths.items[i], ext)) {
+            cmd_append(cmd, file_paths.items[i]);
+        }
+    }
+}
+
+// folder must end with '/' for example 'build/release/'
+void move_local_file_to_folder(const char* file_name, const char* folder)
+{
+    const char* current_dir = get_current_dir_temp();
+    String_Builder sb_from = {0};
+    sb_append_cstr(&sb_from, current_dir);
+    sb_append_cstr(&sb_from, "/");
+    sb_append_cstr(&sb_from, file_name);
+    sb_append_null(&sb_from);
+    String_Builder sb_to = {0};
+    sb_append_cstr(&sb_to, current_dir);
+    sb_append_cstr(&sb_to, "/");
+    sb_append_cstr(&sb_to, folder);
+    sb_append_cstr(&sb_to, file_name);
+    sb_append_null(&sb_to);
+    rename(sb_from.items, sb_to.items);
+    sb_free(sb_from);
+    sb_free(sb_to);
+}
+
+void move_obj_files_to_obj_dir(const char* obj_dir)
+{
+    Nob_File_Paths file_paths = {0};
+    nob_read_entire_dir(".", &file_paths);
+    for (int i = 0; i < file_paths.count; ++i) {
+        if (has_file_ext(file_paths.items[i], "o")) {
+            move_local_file_to_folder(file_paths.items[i], obj_dir);
+        }
+    }
+}
+
+const char* enter_folder(const char *folder)
+{
+    const char* current_dir = nob_get_current_dir_temp();
+    String_Builder sb = {0};
+    sb_append_cstr(&sb, current_dir);
+    sb_append_cstr(&sb, "/");
+    sb_append_cstr(&sb, folder);
+    sb_append_null(&sb);
+    set_current_dir(sb.items);
+    sb_free(sb);
+    return current_dir;
+}
+
+void build_success(const char* target_name)
+{
+    printf("\n" "Successfully built '%s'!" "\n\n", target_name);
+}
+
+/////////////////////
+// Strliteral
+/////////////////////
+
+#define STRLITERAL_DIR EXTERN_DIR "strliteral/"
+#define STRLITERAL_BUILD_DIR STRLITERAL_DIR "build/"
+
+#define STRLITERAL_TARGET_NAME "strliteral"
+#define STRLITERAL_EXECUTABLE_PATH STRLITERAL_BUILD_DIR BIN_FOLDER STRLITERAL_TARGET_NAME
+
+bool build_strliteral_binary_to_c_converter(Cmd *cmd)
+{
+    if (!mkdir_if_not_exists(STRLITERAL_BUILD_DIR)) return 1;
+    if (!mkdir_if_not_exists(STRLITERAL_BUILD_DIR BIN_FOLDER)) return 1;
+    
+    cmd_append(cmd, "clang", STRLITERAL_DIR "strliteral.c", "-o", STRLITERAL_TARGET_NAME);
+    if (!cmd_run_sync_and_reset(cmd)) return false;
+
+    move_local_file_to_folder(STRLITERAL_TARGET_NAME, STRLITERAL_BUILD_DIR BIN_FOLDER);
+
+    build_success(STRLITERAL_TARGET_NAME);
+    return true;
+}
+
+/////////////////////
+// Google-Filament
+/////////////////////
+
+#define FILAMENT_DIR EXTERN_DIR "filament/"
+#define FILAMENT_BUILD_DIR FILAMENT_DIR "out/"
+
+#ifdef DEBUG_BUILD
+    #define FILAMENT_BUILD_FOLDER "cmake-debug/"
+#else
+    #define FILAMENT_BUILD_FOLDER "cmake-release/"
+#endif
+
+bool build_google_filament(Cmd *cmd)
+{
+    if (!mkdir_if_not_exists(FILAMENT_BUILD_DIR)) return 1;
+    if (!mkdir_if_not_exists(FILAMENT_BUILD_DIR FILAMENT_BUILD_FOLDER)) return 1;
+
+    const char* prev_dir = enter_folder(FILAMENT_BUILD_DIR FILAMENT_BUILD_FOLDER);
+
+#ifdef DEBUG_BUILD
+        cmd_append(cmd, "cmake", "-G", "Unix Makefiles",
+                   "-DCMAKE_CXX_COMPILER=clang++",
+                   "-DCMAKE_C_COMPILER=clang",
+                   "-DCMAKE_BUILD_TYPE=Debug",
+                   "-DCMAKE_INSTALL_PREFIX=../debug/filament",
+                   "-DCMAKE_CXX_FLAGS=\"-fPIC\"",
+                   "-DCMAKE_C_FLAGS=\"-fPIC\"",
+                   "../..");
+#else
+        cmd_append(cmd, "cmake", "-G", "Unix Makefiles",
+                   "-DCMAKE_CXX_COMPILER=clang++",
+                   "-DCMAKE_C_COMPILER=clang",
+                   "-DCMAKE_BUILD_TYPE=Release",
+                   "-DCMAKE_INSTALL_PREFIX=../release/filament",
+                   "-DCMAKE_CXX_FLAGS=\"-fPIC\"",
+                   "-DCMAKE_C_FLAGS=\"-fPIC\"",
+                   "../..");
+#endif
+    
+    if (!cmd_run_sync_and_reset(cmd)) {
+        set_current_dir(prev_dir);
+        return false;
+    }
+
+    // 8 concurrent jobs is a good number of jobs
+    cmd_append(cmd, "make", "-j", "8");
+    if (!cmd_run_sync_and_reset(cmd)) {
+        set_current_dir(prev_dir);
+        return false;
+    }
+
+    set_current_dir(prev_dir);
+    
+    build_success("Goolge-Filament");
+    return true;
+}
+
+#define FILAMENT_MATC_EXECUTABLE_PATH FILAMENT_BUILD_DIR FILAMENT_BUILD_FOLDER "tools/matc/matc"
+
+bool compile_and_embed_filament_materials(Cmd *cmd)
+{
+    const char* materials[] = {
+        "./assets/sandboxLit",
+        "./assets/sandboxUnlit"
+    };
+
+    for (int i = 0; i < ARRAY_LEN(materials); ++i)
+    {
+        String_Builder mat_str = {0};
+        sb_append_cstr(&mat_str, materials[i]);
+        sb_append_cstr(&mat_str, ".mat");
+        sb_append_null(&mat_str);
+        
+        String_Builder filamat_str = {0};
+        sb_append_cstr(&filamat_str, materials[i]);
+        sb_append_cstr(&filamat_str, ".filamat");
+        sb_append_null(&filamat_str);
+
+        cmd_append(cmd, FILAMENT_MATC_EXECUTABLE_PATH, "--api", "all", "-o", filamat_str.items, mat_str.items);
+        if (!cmd_run_sync_and_reset(cmd)) return false;
+
+        String_Builder cpp_str = {0};
+        sb_append_cstr(&cpp_str, materials[i]);
+        sb_append_cstr(&cpp_str, ".cpp");
+        sb_append_null(&cpp_str);
+        
+        cmd_append(cmd, STRLITERAL_EXECUTABLE_PATH, "--volatile", filamat_str.items, cpp_str.items);
+        if (!cmd_run_sync_and_reset(cmd)) return false;
+
+        delete_file(filamat_str.items); // We don't need the .filamat file
+
+        sb_free(mat_str);
+        sb_free(filamat_str);
+        sb_free(cpp_str);
+    }
+    
+    return true;
+}
+
+#define LUIGI_DIR EXTERN_DIR "luigi/"
+
+#define FILAMENT_INCLUDE_PATH               FILAMENT_DIR "filament/include/"
+#define FILAMENT_BACKEND_INCLUDE_PATH       FILAMENT_DIR "filament/backend/include/"
+#define FILAMENT_FILAMESH_INCLUDE_PATH      FILAMENT_DIR "libs/filameshio/include/"
+#define FILAMENT_FILAMAT_INCLUDE_PATH       FILAMENT_DIR "libs/filamat/include/"
+#define FILAMENT_UTILS_INCLUDE_PATH         FILAMENT_DIR "libs/utils/include/"
+#define FILAMENT_MATH_INCLUDE_PATH          FILAMENT_DIR "libs/math/include/"
+#define FILAMENT_FILABRIDGE_INCLUDE_PATH    FILAMENT_DIR "libs/filabridge/include/"
+#define FILAMENT_IBLPREFILTER_INCLUDE_PATH  FILAMENT_DIR "libs/iblprefilter/include/"
+#define FILAMENT_GLTFIO_INCLUDE_PATH        FILAMENT_DIR "libs/gltfio/include/"
+#define FILAMENT_STB_INCLUDE_PATH           FILAMENT_DIR "third_party/stb/"
+#define FILAMENT_ROBIN_MAP_INCLUDE_PATH     FILAMENT_DIR "third_party/robin-map/"
+
+const char* all_filament_include_paths[] = {
+    "-I" FILAMENT_INCLUDE_PATH,
+    "-I" FILAMENT_BACKEND_INCLUDE_PATH,
+    "-I" FILAMENT_UTILS_INCLUDE_PATH,
+    "-I" FILAMENT_MATH_INCLUDE_PATH,
+    "-I" FILAMENT_FILAMESH_INCLUDE_PATH,
+    "-I" FILAMENT_FILAMAT_INCLUDE_PATH,
+    "-I" FILAMENT_FILABRIDGE_INCLUDE_PATH,
+    "-I" FILAMENT_IBLPREFILTER_INCLUDE_PATH,
+    "-I" FILAMENT_GLTFIO_INCLUDE_PATH,
+    "-I" FILAMENT_ROBIN_MAP_INCLUDE_PATH,
+    "-I" FILAMENT_STB_INCLUDE_PATH,
+};
+
+#define FILAMENT_LIBS        FILAMENT_BUILD_DIR FILAMENT_BUILD_FOLDER "libs/"
+#define FILAMENT_THIRD_PARTY FILAMENT_BUILD_DIR FILAMENT_BUILD_FOLDER "third_party/"
+
+#define FILAMENT_LIB_PATH         FILAMENT_BUILD_DIR FILAMENT_BUILD_FOLDER "filament/"
+#define FILAMENT_BACKEND_LIB_PATH FILAMENT_BUILD_DIR FILAMENT_BUILD_FOLDER "filament/backend/"
+#define FILAMENT_SHADERS_LIB_PATH FILAMENT_BUILD_DIR FILAMENT_BUILD_FOLDER "shaders/"
+#define FILAMENT_BLUEGL_LIB_PATH        FILAMENT_LIBS "bluegl/"
+#define FILAMENT_BLUEVK_LIB_PATH        FILAMENT_LIBS "bluevk/"
+#define FILAMENT_UTILS_LIB_PATH         FILAMENT_LIBS "utils/"
+#define FILAMENT_FILABRIDGE_LIB_PATH    FILAMENT_LIBS "filabridge/"
+#define FILAMENT_FILAFLAT_LIB_PATH      FILAMENT_LIBS "filaflat/"
+#define FILAMENT_GEOMETRY_LIB_PATH      FILAMENT_LIBS "geometry/"
+#define FILAMENT_GLTFIO_LIB_PATH        FILAMENT_LIBS "gltfio/"
+#define FILAMENT_FILAMESHIO_LIB_PATH    FILAMENT_LIBS "filameshio/"
+#define FILAMENT_IBL_PATH               FILAMENT_LIBS "ibl/"
+#define FILAMENT_IBL_PREFILTER_LIB_PATH FILAMENT_LIBS "iblprefilter/"
+#define FILAMENT_FILAMAT_LIB_PATH       FILAMENT_LIBS "filamat/"
+#define FILAMENT_MATDBG_LIB_PATH        FILAMENT_LIBS "matdbg/"
+#define FILAMENT_SMOLV_LIB_PATH           FILAMENT_THIRD_PARTY "smol-v/tnt/"
+#define FILAMENT_GLSLANG_LIB_PATH         FILAMENT_THIRD_PARTY "glslang/tnt/glslang/"
+#define FILAMENT_DRACO_DEC_LIB_PATH       FILAMENT_THIRD_PARTY "draco/tnt/"
+#define FILAMENT_MIKKTSPACE_LIB_PATH      FILAMENT_THIRD_PARTY "mikktspace/"
+#define FILAMENT_SPIRV_LIB_PATH           FILAMENT_THIRD_PARTY "glslang/tnt/SPIRV/"
+#define FILAMENT_SPIRV_CROSS_LIB_PATH     FILAMENT_THIRD_PARTY "spirv-cross/tnt/"
+#define FILAMENT_SPIRV_TOOLS_LIB_PATH     FILAMENT_THIRD_PARTY "spirv-tools/source/"
+#define FILAMENT_SPIRV_TOOLS_OPT_LIB_PATH FILAMENT_THIRD_PARTY "spirv-tools/source/opt/"
+#define FILAMENT_MESH_OPTIMIZER_LIB_PATH  FILAMENT_THIRD_PARTY "meshoptimizer/tnt/"
+#define FILAMENT_CIVETSERVER_LIB_PATH     FILAMENT_THIRD_PARTY "civetweb/tnt/"
+
+const char* all_filament_lib_paths[] = {
+    "-L" FILAMENT_LIB_PATH,
+    "-L" FILAMENT_BACKEND_LIB_PATH,
+    "-L" FILAMENT_SHADERS_LIB_PATH,
+    "-L" FILAMENT_BLUEGL_LIB_PATH,
+    "-L" FILAMENT_BLUEVK_LIB_PATH,
+    "-L" FILAMENT_UTILS_LIB_PATH,
+    "-L" FILAMENT_FILABRIDGE_LIB_PATH,
+    "-L" FILAMENT_FILAFLAT_LIB_PATH,
+    "-L" FILAMENT_GEOMETRY_LIB_PATH,
+    "-L" FILAMENT_GLTFIO_LIB_PATH,
+    "-L" FILAMENT_FILAMESHIO_LIB_PATH,
+    "-L" FILAMENT_IBL_PATH,
+    "-L" FILAMENT_IBL_PREFILTER_LIB_PATH,
+    "-L" FILAMENT_FILAMAT_LIB_PATH,
+    "-L" FILAMENT_SMOLV_LIB_PATH,
+    "-L" FILAMENT_GLSLANG_LIB_PATH,
+    "-L" FILAMENT_DRACO_DEC_LIB_PATH,
+    "-L" FILAMENT_MIKKTSPACE_LIB_PATH,
+    "-L" FILAMENT_SPIRV_LIB_PATH,
+    "-L" FILAMENT_SPIRV_CROSS_LIB_PATH,
+    "-L" FILAMENT_SPIRV_TOOLS_LIB_PATH,
+    "-L" FILAMENT_SPIRV_TOOLS_OPT_LIB_PATH,
+    "-L" FILAMENT_MESH_OPTIMIZER_LIB_PATH,
+    "-L" FILAMENT_MATDBG_LIB_PATH,
+    "-L" FILAMENT_CIVETSERVER_LIB_PATH,
+};
+
+const char *all_filament_libs[] = {
+    "-lfilament", "-lbackend", "-lbluegl", "-lbluevk", "-lutils", "-lfilabridge",
+    "-lfilaflat", "-lgeometry", "-lsmol-v", "-lgltfio", "-lgltfio_core", "-lglslang",
+    "-lshaders", "-ldracodec", "-lmikktspace", "-lSPIRV", "-lspirv-cross-core", "-lspirv-cross-glsl",
+    "-lspirv-cross-msl", "-lSPIRV-Tools", "-lSPIRV-Tools-opt", "-lfilameshio", "-lmeshoptimizer",
+    "-lfilament-iblprefilter", "-lfilamat", "-libl", "-lfilament", "-lutils",
+#ifdef DEBUG_BUILD
+    "-lmatdbg",
+    "-lmatdbg_resources",
+    "-lcivetweb",
+#endif
+};
+
+bool build_libtds_shared(Cmd *cmd)
+{
+    // build command
+    // -fPIC - 'position independet code' necessary for shared libraries
+    // -fvisibility=hidden - hides all symbols by default, we have the macro TDS_API to exclude only the api functions from this rule
+    cmd_append(cmd, CXX, CPPFLAGS, "-fPIC", "-fvisibility=hidden", "-c");
+
+    // include paths
+    cmd_append(cmd, "-I" INCLUDE_DIR, "-I" LUIGI_DIR);
+    cmd_append_static_array(cmd, all_filament_include_paths);
+
+    // source files
+    const char* source_files[] = {
+        SRC_DIR "camera.cpp",
+        SRC_DIR "entity.cpp",
+        SRC_DIR "environment.cpp",
+        SRC_DIR "frame.cpp",
+        SRC_DIR "gltf_instance.cpp",
+        SRC_DIR "joystick.cpp",
+        SRC_DIR "logging.cpp",
+        SRC_DIR "luigi.cpp",
+        SRC_DIR "math.cpp",
+        SRC_DIR "mesh.cpp",
+        SRC_DIR "object_manager.cpp",
+        SRC_DIR "stb_image.cpp",
+        SRC_DIR "viewport.cpp",
+        // cpp files generated from binaries
+        ASSET_DIR "sandboxLit.cpp",
+        ASSET_DIR "sandboxUnlit.cpp",
+    };
+    cmd_append_static_array(cmd, source_files);
+
+    // execute build command
+    if (!cmd_run_sync_and_reset(cmd)) return false;
+
+    // link command
+    cmd_append(cmd, CXX, "-fPIC", "-fuse-ld=lld", "-shared", "-o", TDSLIB_TARGET_NAME);
+
+    // appending object files
+    File_Paths obj_file_paths = {0};
+    nob_read_entire_dir(".", &obj_file_paths);
+    cmd_append_files_with_ext(cmd, obj_file_paths, "o");
+
+    // appending libs
+    cmd_append_static_array(cmd, all_filament_lib_paths);
+    cmd_append_static_array(cmd, all_filament_libs);
+    const char* libs[] = {
+        "-lX11",
+        "-lXext",
+        "-lpthread",
+        "-lc++",
+        "-ldl",
+    };
+    cmd_append_static_array(cmd, libs);
+
+    // executing the link command
+    if (!cmd_run_sync_and_reset(cmd)) return false;
+    move_obj_files_to_obj_dir(BUILD_DIR OBJ_FOLDER);
+    move_local_file_to_folder(TDSLIB_TARGET_NAME, BUILD_DIR LIB_FOLDER);
+    build_success(TDSLIB_TARGET_NAME);
+    return true;
+}
+
+#define TEST_LIBTDS_TARGET_NAME "test_libtds"
+
+bool build_test_libtds(Cmd *cmd)
+{
+    cmd_append(cmd, CXX, CPPFLAGS,
+               "-o", TEST_LIBTDS_TARGET_NAME,
+               "-I", INCLUDE_DIR,
+               "-I", FILAMENT_MATH_INCLUDE_PATH,
+               TESTS_DIR "test_libtds.cpp",
+               BUILD_DIR LIB_FOLDER TDSLIB_TARGET_NAME);
+
+    if (!cmd_run_sync_and_reset(cmd)) return false;
+    move_local_file_to_folder(TEST_LIBTDS_TARGET_NAME, BUILD_DIR BIN_FOLDER);
+    build_success(TEST_LIBTDS_TARGET_NAME);
+    return true;
+}
+
+#define TEST_LIBTDS_SIMPLE_TARGET_NAME "test_libtds_simple"
+
+bool build_test_libtds_simple(Cmd *cmd)
+{
+    cmd_append(cmd, CXX, CPPFLAGS,
+               "-o", TEST_LIBTDS_SIMPLE_TARGET_NAME,
+               TESTS_DIR "test_libtds_simple.cpp",
+               BUILD_DIR LIB_FOLDER TDSLIB_TARGET_NAME);
+
+    if (!cmd_run_sync_and_reset(cmd)) return false;
+    move_local_file_to_folder(TEST_LIBTDS_SIMPLE_TARGET_NAME, BUILD_DIR BIN_FOLDER);
+    build_success(TEST_LIBTDS_SIMPLE_TARGET_NAME);
+    return true;
+}
+
+
+
+#define TEST_JOYSTICK_TARGET_NAME "test_joystick"
+
+bool build_test_joystick(Cmd *cmd) 
+{
+    cmd_append(cmd, CXX, CPPFLAGS,
+               "-o", TEST_JOYSTICK_TARGET_NAME,
+               TESTS_DIR "test_joystick.cpp",
+               BUILD_DIR LIB_FOLDER TDSLIB_TARGET_NAME);
+
+    if (!cmd_run_sync_and_reset(cmd)) return false;
+    move_local_file_to_folder(TEST_JOYSTICK_TARGET_NAME, BUILD_DIR BIN_FOLDER);
+    build_success(TEST_JOYSTICK_TARGET_NAME);
+    return true;
+}
+
+#define EXP_X11_FILAMENT_TARGET_NAME "exp_x11_filament"
+
+bool build_experiment_x11_filament(Cmd* cmd) {
+    cmd_append(cmd, CXX, CPPFLAGS);
+    cmd_append_static_array(cmd, all_filament_include_paths);
+    cmd_append(cmd, EXPERIMENTS_DIR "exp_x11_filament.cpp",
+               SRC_DIR "stb_image.cpp",
+               "-o" EXP_X11_FILAMENT_TARGET_NAME);
+
+    cmd_append_static_array(cmd, all_filament_lib_paths);
+    cmd_append_static_array(cmd, all_filament_libs);
+    const char* libs[] = {
+        "-lX11",
+        "-lXext",
+        "-lpthread",
+        "-lc++",
+        "-ldl",
+    };
+    cmd_append_static_array(cmd, libs);
+
+    if (!cmd_run_sync_and_reset(cmd)) return false;
+    build_success(EXP_X11_FILAMENT_TARGET_NAME);
+    return true;
+}
+
+#define EXP_LUIGI_FILAMENT_TARGET_NAME "exp_luigi_filament"
+
+bool build_experiment_luigi_filament(Cmd* cmd) {
+    cmd_append(cmd, CXX, CPPFLAGS);
+    cmd_append_static_array(cmd, all_filament_include_paths);
+    cmd_append(cmd, EXPERIMENTS_DIR "luigi_filament.cpp",
+               SRC_DIR "stb_image.cpp",
+               "-o" EXP_LUIGI_FILAMENT_TARGET_NAME);
+
+    cmd_append_static_array(cmd, all_filament_lib_paths);
+    cmd_append_static_array(cmd, all_filament_libs);
+    const char* libs[] = {
+        "-lX11",
+        "-lXext",
+        "-lpthread",
+        "-lc++",
+        "-ldl",
+    };
+    cmd_append_static_array(cmd, libs);
+
+    if (!cmd_run_sync_and_reset(cmd)) return false;
+    build_success(EXP_LUIGI_FILAMENT_TARGET_NAME);
+    return true;
+}
+
+#define EXP_SDL_FILAMENT_TARGET_NAME "exp_sdl_filament"
+
+bool build_experiment_sdl_filament(Cmd* cmd)
+{
+    cmd_append(cmd, CXX, CPPFLAGS);
+    cmd_append_static_array(cmd, all_filament_include_paths);
+    cmd_append(cmd, EXPERIMENTS_DIR "exp_sdl_filament.cpp",
+               SRC_DIR "stb_image.cpp",
+               "-o" EXP_SDL_FILAMENT_TARGET_NAME);
+    
+    cmd_append_static_array(cmd, all_filament_lib_paths);
+    cmd_append_static_array(cmd, all_filament_libs);
+    const char* libs[] = {
+        "-lSDL2",
+        "-lpthread",
+        "-lc++",
+        "-ldl",
+    };
+    cmd_append_static_array(cmd, libs);
+
+    if (!cmd_run_sync_and_reset(cmd)) return false;
+    build_success(EXP_SDL_FILAMENT_TARGET_NAME);
+    return true;
+}
+
+void print_help()
+{
+    static const char* help_message =
+        "--HELP MESSAGE--\n"
+        "This is the integrated build-tool for '"PROJECT_NAME"' built with 'nob.h'.\n"
+        "Learn more about 'nob.h' here: https://github.com/tsoding/nob.h\n\n"
+        "ARGUMENTS:\n\n"
+        "  'help'        Print this help message.\n"
+        "  'all'         Build everything\n"
+        "  'filament'    Build Google-Filament. Make sure to install the dependencies first!!\n"
+        "  'libtds'      Build 'libtinydronessimbackend.so' .\n"
+        "  'clean'       Clean the build.\n"
+        "  'tests'       Build the tests.\n"
+        "  'materials'   Compile the materials (.mat to .filamat).\n"
+        "  'strliteral'  Build strliteral.c, a tool for converting binary data into C (string-literals)\n";
+    
+    printf("%s", help_message);
+}
+
+bool clean_build(Cmd *cmd)
+{
+    cmd_append(cmd, "rm", "-r", BUILD_DIR);
+    return cmd_run_sync_and_reset(cmd);
+}
+
+int main(int argc, char **argv)
+{
+    Cmd cmd = {0};
+
+    // Nob can detect, if the build script nob.c or nob_config.h have been changed and rebuilds nob automatically.
+    NOB_GO_REBUILD_URSELF(argc, argv);
+
+    const char *program_name = shift_args(&argc, &argv);
+    
+    bool build_libtds = false;
+    bool build_tests = false;
+    bool compile_materials = false;
+    bool build_filament = false;
+    bool build_strliteral = false;
+
+    // No arguments means, nothing will happen.
+    if (argc == 0) {
+        print_help();
+        return 0;
+    }
+
+    while (argc > 0)
+    {
+        const char *nob_cmd = shift_args(&argc, &argv);
+
+        if (!strcmp(nob_cmd, "help") || !strcmp(nob_cmd, "--help")) { 
+            print_help();
+            return 0;
+        }
+        else if (!strcmp(nob_cmd, "clean")) {
+            if (!clean_build(&cmd)) return 1;
+            return 0; 
+        }
+        else if (!strcmp(nob_cmd, "libtds")) {
+            build_libtds = true; 
+        }
+        else if (!strcmp(nob_cmd, "tests")) {
+            build_tests = true; 
+        }
+        else if (!strcmp(nob_cmd, "filament")) {
+            build_filament = true;
+        }
+        else if (!strcmp(nob_cmd, "materials")) {
+            compile_materials = true; 
+        }
+        else if (!strcmp(nob_cmd, "strliteral")) {
+            build_strliteral = true; 
+        }
+        else if (!strcmp(nob_cmd, "all")) {
+            build_libtds = true; 
+            build_tests = true; 
+            build_filament = true;
+            compile_materials = true; 
+            build_strliteral = true;
+        }
+        else {
+            nob_log(ERROR, "Unrecognized command '%s'\n", nob_cmd);
+            print_help();
+            return 0;
+        }
+    }
+
+    if (build_filament) {
+        if (!build_google_filament(&cmd)) return 1;
+    }
+
+    if (!mkdir_if_not_exists(BUILD_DIR)) return 1;
+    if (!mkdir_if_not_exists(BUILD_DIR OBJ_FOLDER)) return 1; 
+    if (!mkdir_if_not_exists(BUILD_DIR BIN_FOLDER)) return 1;
+    if (!mkdir_if_not_exists(BUILD_DIR LIB_FOLDER)) return 1;
+    
+    if (build_strliteral) {
+        if (!build_strliteral_binary_to_c_converter(&cmd)) return 1;
+    }
+
+    if (compile_materials) {
+        if (!compile_and_embed_filament_materials(&cmd)) return 1;
+    }
+
+    if (build_libtds) {
+        if (!build_libtds_shared(&cmd)) return 1;
+    }
+
+    if (build_tests) {
+        if (!build_test_libtds_simple(&cmd)) return 1;
+        /* if (!build_test_libtds(&cmd)) return 1; */
+        /* if (!build_test_joystick(&cmd)) return 1; */
+    }
+
+    /* if (!build_experiment_sdl_filament(&cmd)) return 1; */
+    /* if (!build_experiment_x11_filament(&cmd)) return 1; */
+    /* if (!build_experiment_luigi_filament(&cmd)) return 1; */
+
+    return 0;
+}

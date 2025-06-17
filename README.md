@@ -17,12 +17,15 @@ TinyDronesSim is a tool for simulating the *tinydrone*.
    2. Get Google-Filament
       - `git clone https://github.com/google/filament.git --depth=1` specifying `depth=1` to do a shallow clone (still 2 GB)
    3. Get the build-environment dependencies. They are required for compiling Google-Filament.
-      - `clang-14` **or higher**
-      - `libglu1-mesa-dev`
-      - `libc++-14-dev` (`libcxx-devel` and `libcxx-static` on Fedora) **or higher**
-      - `libc++abi-14-dev` (`libcxxabi-static` on Fedora) **or higher**
       - `make`
-      - `libxi-dev`
+      - `cmake`
+      - `clang` **Version 14 or higher**
+      - `lld` **Version 14 or higher**
+      - `libglu1-mesa-dev` (`mesa-libGL-devel` on Fedora)
+      - `libsdl2-dev` (`SDL2-devel` on Fedora)
+      - `libc++-dev` (`libcxx-devel` and `libcxx-static` on Fedora) **Version 14 or higher**
+      - `libc++abi-dev` (`libcxxabi-static` on Fedora) **Version 14 or higher**
+      - `libxi-dev` (`mesa-libGLU-devel` on Fedora)
       - `libxcomposite-dev` (`libXcomposite-devel` on Fedora)
       - `libxxf86vm-dev` (`libXxf86vm-devel` on Fedora)
    4. Compile `nob.c` with your favorite C-compiler. You only have to do this once, `nob.c` recompiles automatically when changed.

@@ -1,72 +1,80 @@
 using TinyDronesSim
-using StaticStrings
-using Printf
-const Env = TinyDronesSim.Environments
+const tds = TinyDronesSim
 
 include("simple_drone_declaration.jl")
 
 # Adding all the object that we require for the simulation and visualization
 
-env = Env.create_environment()
-Env.add_ibl_skybox(cstatic"./EnvironmentBackend/assets/rogland_sunset_2k.hdr")
+# joystick setup
+joystick = tds.joystick_create_and_connect("/dev/input/js1")
+if invalid_id(joystick) exit(1) end
 
-camera = Env.create_camera(env, far_plane = 300.0)
-camera_motion_state = Env.Camera_Motion_State()
-window = Env.create_window(camera, cstatic"drone simulation example", target_fps = 60)
+println("#########
+After your joystick is connected, it needs to be calibrated!
+Simply do:
+tds.joystick_calibrate(joystick)
 
-drone_camera = Env.create_camera(env)
-window_drone_pov = Env.create_window(drone_camera, cstatic"drone POV")
+Though you should rather use the function to generate the calibration code and copy it here.
+This is done like this (in the repl):
+tds.joystick_calibrate(my_joystick, joystick_symbol = :my_joystick)
+########")
+
+env = tds.create_environment()
+tds.env_add_ibl_skybox("./TinyDroneSimBackend/assets/rogland_sunset_2k.hdr")
+
+camera = tds.camera_create(env, far_plane = 300.0)
+camera_motion_state = tds.Camera_Motion_State()
+
+drone_camera = tds.camera_create(env)
 
 drone = Drone()
-add_renderables(drone)
+add_renderables(env, drone)
 
-cool_gltf_asset = Env.add_gltf_asset_and_create_instance(cstatic"./EnvironmentBackend/assets/castle.glb");
+gltf_asset = tds.env_add_gltf_asset_and_create_instance("./TinyDroneSimBackend/assets/castle.glb");
 
-# joystick setup
+viewport = tds.viewport_create()
 
-Env.window_activate(window) # The joystick input should be captured by the main window
+tds.viewport_add_controll_panel(viewport)
+tds.viewport_add_camera(viewport, camera, camera_update, tds.VIEWPORT_UPPER)
+tds.viewport_add_camera(viewport, drone_camera, drone_camera_update, [tds.VIEWPORT_UPPER, tds.VIEWPORT_LEFT])
 
-if Env.connect_to_joystick()
-    println("INFO: Connected to joystick.")
-else
-    println("ERROR: Failed to connect to joystick, please plug in your joystick and call 'Env.connect_to_joystick()'.")
+function camera_update(update::tds.Viewport_Camera_Callback_Update)::UInt32
+    
 end
 
-println("------
-After your joystick is connected, it needs to be calibrated!
-First run 'joy_calib_code = Env.generate_joystick_calibration_code()', which will
-return Julia code that you then need to execute like this 'eval(calibration_code)'
-------")
+function drone_camera_update(update::tds.Viewport_Camera_Callback_Update)::UInt32
+    
+end
 
 function sim_loop()
 
-    Env.window_show(window)
-    Env.window_show(window_drone_pov)
+    tds.window_show(window)
+    tds.window_show(window_drone_pov)
 
     run_simulation = false
 
     # When the window is closed or minimized, it's considered to be invisible
-    while Env.window_visible(window) || Env.window_visible(window_drone_pov)
+    while tds.window_visible(window) || tds.window_visible(window_drone_pov)
 
-        if Env.window_visible(window)
-            Env.window_activate(window)
+        if tds.window_visible(window)
+            tds.window_activate(window)
 
-            if (Env.is_key_pressed(Env.SDL_SCANCODE_SPACE))
+            if (tds.is_key_pressed(tds.SDL_SCANCODE_SPACE))
                 run_simulation = !run_simulation
             end
 
             # reset the drone
-            if (Env.is_key_pressed(Env.SDL_SCANCODE_R))
+            if (tds.is_key_pressed(tds.SDL_SCANCODE_R))
                 set_pos!(drone, Float64_3(0,0,0))
                 set_velocity!(drone, Float64_3(0,0,0))
                 set_orientation!(drone, identity_quaternion())
                 set_angular_velocity!(drone, Float64_3(0,0,0))
             end
 
-            throttle = (Env.get_joystick_axis_mapped_value(Env.JOYSTICK_THROTTLE) + 1.0) * 30.0
-            yaw = Env.get_joystick_axis_mapped_value(Env.JOYSTICK_YAW) * 30.0
-            pitch = Env.get_joystick_axis_mapped_value(Env.JOYSTICK_PITCH) * 30.0
-            roll = Env.get_joystick_axis_mapped_value(Env.JOYSTICK_ROLL) * 30.0
+            throttle = (tds.get_joystick_axis_mapped_value(tds.JOYSTICK_THROTTLE) + 1.0) * 30.0
+            yaw = tds.get_joystick_axis_mapped_value(tds.JOYSTICK_YAW) * 30.0
+            pitch = tds.get_joystick_axis_mapped_value(tds.JOYSTICK_PITCH) * 30.0
+            roll = tds.get_joystick_axis_mapped_value(tds.JOYSTICK_ROLL) * 30.0
 
             # Very rudimentary mapping between drone and joystick
             drone.thrusters[1].angular_velo = -abs(throttle + pitch - roll - yaw)
@@ -79,27 +87,27 @@ function sim_loop()
 
             if (run_simulation)
                 for i in 1:100
-                    integrate_physics_euler!(drone, (Env.window_get_last_frame_time_ms() / 1000.0) / 100.0, 1e-8)
+                    integrate_physics_euler!(drone, (tds.window_get_last_frame_time_ms() / 1000.0) / 100.0, 1e-8)
                 end
             end
             
             update_renderables(drone)
             
             camera_motion_state.orbit_center = get_pos(drone) # center the camera around the drone
-            Env.update_camera_by_window_input!(camera, camera_motion_state, mode=Env.THIRD_PERSON) # update the camera by mouse and keyboard input
+            tds.update_camera_by_window_input!(camera, camera_motion_state, mode=tds.THIRD_PERSON) # update the camera by mouse and keyboard input
             
-            Env.window_update()
+            tds.window_update()
         end
 
-        if Env.window_visible(window_drone_pov)
-            Env.window_activate(window_drone_pov)
+        if tds.window_visible(window_drone_pov)
+            tds.window_activate(window_drone_pov)
 
             # "attach" the drone_camera to the drone
-            Env.set_position(Env.get_filament_entity(drone_camera), get_pos(drone))
+            tds.set_position(tds.get_filament_entity(drone_camera), get_pos(drone))
             # FIXME: The orientation is for some reason not correct, using the 'conjugate' "fixes" things, but this is obviously not ideal
-            Env.set_orientation(Env.get_filament_entity(drone_camera), conjugate(get_orientation(drone)))
+            tds.set_orientation(tds.get_filament_entity(drone_camera), conjugate(get_orientation(drone)))
             
-            Env.window_update()
+            tds.window_update()
         end
     end
 

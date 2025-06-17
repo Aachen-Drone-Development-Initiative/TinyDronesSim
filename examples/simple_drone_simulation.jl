@@ -1,54 +1,72 @@
 using TinyDronesSim
-using StaticStrings
-using Printf
-const Env = TinyDronesSim.Environments
+const tds = TinyDronesSim
 
 include("simple_drone_declaration.jl")
 
-# Adding all the object which we require for the simulation and visualization
-env = Env.create_environment()
-Env.add_ibl_skybox(cstatic"./EnvironmentBackend/assets/rogland_sunset_2k.hdr")
+env = tds.env_create() # creating an environment, things like lights and meshes live here
+tds.env_add_ibl_skybox("./TinyDronesSimBackend/assets/rogland_sunset_2k.hdr") # add skybox to the active environment (which is the last created env)
 
-camera = Env.create_camera(env, far_plane = 300.0)
-camera_motion_state = Env.Camera_Motion_State()
-window = Env.create_window(camera, cstatic"drone simulation example", target_fps = 60)
+drone = Drone() # create a drone as specified in "./simple_drone_declaration.jl"
+drone_add_renderables(env, drone)
 
-drone = Drone()
-add_renderables(drone)
+cool_gltf_asset = tds.env_add_gltf_asset_and_create_instance("./TinyDronesSimBackend/assets/castle.glb");
 
-cool_gltf_asset = Env.add_gltf_asset_and_create_instance(cstatic"./EnvironmentBackend/assets/castle.glb");
+camera = tds.camera_create(env, far_plane = 300.0) # add a camera to the env
 
-function sim_loop()
-    Env.window_show(window)
+@kwdef mutable struct Update_Sim
     run_simulation = false
+    space_key_down = false # using this to determine if space key was 'pressed'
+    camera_motion_state = tds.Camera_Motion_State() # tracking some addtional camera info to properly update the cameras position and orientation
+end    
 
-    # When the window is closed or minimized, it's considered to be invisible
-    while Env.window_visible(window)
+function update(update::tds.Viewport_Camera_Callback_Update)::UInt32
+    tds.viewport_activate(update.viewport)
 
-        if (Env.is_key_pressed(Env.SDL_SCANCODE_SPACE))
-            run_simulation = !run_simulation
-        end
+    update_obj = unsafe_pointer_to_objref(update.user_ptr)::Update_Sim
 
-        # reset the drone
-        if (Env.is_key_pressed(Env.SDL_SCANCODE_R))
-            set_pos!(drone, Float64_3(0,0,0))
-            set_velocity!(drone, Float64_3(0,0,0))
-            set_orientation!(drone, identity_quaternion())
-            set_angular_velocity!(drone, Float64_3(0,0,0))
-        end
-
-        if (run_simulation)
-            for i in 1:100
-                integrate_physics_euler!(drone, (Env.window_get_last_frame_time_ms() / 1000.0) / 100.0, 1e-8)
-            end
-        end
-        
-        update_renderables(drone)
-        
-        camera_motion_state.orbit_center = get_pos(drone) # center the camera around the drone
-        Env.update_camera_by_window_input!(camera, camera_motion_state, mode=Env.THIRD_PERSON) # update the camera by mouse and keyboard input
-        
-        Env.window_update()
+    # reset the drone while the key 'r' is down
+    if (tds.viewport_key_down('r'))
+        tds.set_position!(drone, tds.Float64_3(0,0,0))
+        tds.set_velocity!(drone, tds.Float64_3(0,0,0))
+        tds.set_orientation!(drone, tds.quat_identity())
+        tds.set_angular_velocity!(drone, tds.Float64_3(0,0,0))
     end
-end
+
+    # pause/continue the simulation when 'space' is down this call
+    # and was not down the previous call (indicating a 'press')
+    if (tds.viewport_key_down(' ') && !update_obj.space_key_down)
+        update_obj.run_simulation = !update_obj.run_simulation
+        update_obj.space_key_down = true
+    else
+        update_obj.space_key_down = false
+    end
+
+    # simulation
+    dt_s = update.delta_time_us * 1e-6
+    if (update_obj.run_simulation)
+        for i in 1:100
+            tds.mech_integrate_force_and_torque_euler!(drone, dt_s / 100.0)
+        end
+    end
     
+    drone_update_renderables(env, drone)
+
+    update_obj.camera_motion_state.orbit_center = tds.position(drone) # center the camera around the drone
+    
+    if update.ui_hovered
+        tds.camera_update_by_user_input!(update.camera,
+                                         update_obj.camera_motion_state,
+                                         update.delta_time_us,
+                                         update.delta_mouse_wheel,
+                                         update.delta_mouse_pos,
+                                         mode = tds.THIRD_PERSON)
+    end
+    
+    return 0
+end
+
+viewport = tds.viewport_create()
+update_sim_obj = Update_Sim()
+tds.viewport_add_camera(viewport, camera, "drone camera", update, user_ptr=pointer_from_objref(update_sim_obj))
+
+tds.gui_continue()

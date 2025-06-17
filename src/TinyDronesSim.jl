@@ -1,15 +1,13 @@
-
 module TinyDronesSim
 
 using StaticArrays
-using StaticStrings
 
-include("./BasicTypes.jl")
-include("./QuaternionRotation.jl")
+include("./TinyDronesSimBackend.jl")
+
+include("./Logging.jl")
+include("./Math.jl")
 include("./Mechanics.jl")
-
-module Environments
-include("./Environment.jl")
-end # module Environments
+include("./Joystick.jl")
+include("./ViewportCamera.jl")
 
 end # module TinyDronesSim
