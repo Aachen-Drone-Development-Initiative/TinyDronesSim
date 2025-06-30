@@ -97,7 +97,6 @@ TDS_API bool joystick_is_connected(Joystick_ID joystick_id)
 bool Joystick::process_event()
 {
     js_event event;
-    size_t axis;
 
     if (!m_connected) {
         tds_soft_error("Joystick not connected");
@@ -227,6 +226,7 @@ Joystick_Data Joystick::get_data()
     map_axis(JOYSTICK_YAW, data.yaw);
     map_axis(JOYSTICK_PITCH, data.pitch);
     map_axis(JOYSTICK_ROLL, data.roll);
+
 #undef map_axis
     
     return data;

@@ -1,5 +1,9 @@
 #include "../tinydronessim_backend.hpp"
 
+#include "entity.hpp"
+#include "math/mathfwd.h"
+#include "par_shapes.h"
+
 #include <environment.hpp>
 
 #include <embedded_asset_info.hpp>
@@ -30,6 +34,8 @@
 #include <gltfio/FilamentInstance.h>
 #include <filament-iblprefilter/IBLPrefilterContext.h>
 #include <math/norm.h>
+#include <math/vec3.h>
+#include <math/vec4.h>
 
 #include <stb_image.h>
 
@@ -72,9 +78,27 @@ static fmt::Material* load_material_from_buffer(filament::Engine* engine, const 
     return material;
 }
 
+static void init_google_filament_if_not_init()
+{
+    static bool initialized = false;
+    if (initialized) return;
+
+    // HACK: Disabling VSync because waiting for the green light from vsync somehow introduces a lot of lag
+    if (ENGINE_BACKEND == fmt::Engine::Backend::VULKAN) {
+        setenv("MESA_VK_WSI_PRESENT_MODE", "immediate", 1);
+    }
+    else if (ENGINE_BACKEND == fmt::Engine::Backend::OPENGL) {
+        setenv("vblank_mode", "0", 1);
+    }
+    
+    initialized = true;
+}
+
 Environment_ID Environment::create()
 {
     Environment* env = new Environment;
+
+    init_google_filament_if_not_init();
 
     env->m_engine = fmt::Engine::Builder().backend(ENGINE_BACKEND).build();
 
@@ -146,154 +170,8 @@ Environment::~Environment()
     // fmt::Engine::destroy(&m_engine);
 }
 
-// bool Environment::process_sdl_event(SDL_Event event)
-// {
-//     switch (event.type) {
-//     case SDL_WINDOWEVENT:
-//         if (event.window.windowID == m_sdl_window_id)
-//         {
-//             switch (event.window.event) {
-//             case SDL_WINDOWEVENT_RESIZED:
-//             {
-//                 // This is handeled by imgui
-                
-//                 // int width, height;
-//                 // SDL_GL_GetDrawableSize(m_sdl_window, &width, &height);
-//                 // set_camera_image_size(m_camera, width, height);
-//                 // break;
-//             }
-                
-//             case SDL_WINDOWEVENT_CLOSE:
-//                 SDL_HideWindow(m_sdl_window);
-//                 break;
-
-//             case SDL_WINDOWEVENT_ENTER:
-//                 m_interface.has_mouse_focus = true;
-//                 break;
-
-//             case SDL_WINDOWEVENT_LEAVE:
-//                 m_interface.has_mouse_focus = false;
-//                 break;
-
-//             case SDL_WINDOWEVENT_SHOWN:
-//                 m_interface.is_visible = true;
-//                 break;
-
-//             case SDL_WINDOWEVENT_HIDDEN:
-//                 m_interface.is_visible = false;
-//                 break;
-
-//             default:
-//                 break;
-//             }
-//         }
-//         break;
-            
-//     case SDL_MOUSEMOTION:
-//         if (event.motion.windowID == window->sdl_window_id) {
-//             window->input.mouse_x = event.motion.x;
-//             window->input.mouse_y = event.motion.y;
-//             window->input.mouse_x_delta = event.motion.xrel;
-//             window->input.mouse_y_delta = event.motion.yrel;
-//         }
-//         break;
-            
-//     case SDL_MOUSEBUTTONDOWN:
-//         if (event.button.windowID == window->sdl_window_id) {
-//             window->input.mouse_event_this_frame[event.button.button] = 1u;
-//         }
-//         break;
-
-//     case SDL_MOUSEBUTTONUP:
-//         if (event.button.windowID == window->sdl_window_id) {
-//             window->input.mouse_event_this_frame[event.button.button] = 0u;
-//         }
-//         break;
-            
-//     case SDL_MOUSEWHEEL:
-//         if (event.wheel.windowID == window->sdl_window_id) {
-//             window->input.mouse_wheel_x_delta = event.wheel.x;
-//             window->input.mouse_wheel_y_delta = event.wheel.y;
-//         }
-//         break;
-            
-//     case SDL_KEYDOWN:
-//         if (event.key.windowID == window->sdl_window_id) {
-//             window->input.key_event_this_frame[event.key.keysym.scancode] = KEY_EVENT_DOWN;
-//         }
-//         break;
-        
-//     case SDL_KEYUP:
-//         if (event.key.windowID == window->sdl_window_id) {
-//             window->input.key_event_this_frame[event.key.keysym.scancode] = 0u;
-//         }
-//         break;
-
-//     case SDL_JOYAXISMOTION:
-//         window->input.joystick_axes_raw[event.jaxis.axis] = event.jaxis.value;
-//         break;
-        
-//     default:
-//         break;
-//     }
-//     return true;
-// }
-
-// bool Environment::update_interface()
-// {
-
-//     /*
-//      * Resetting user input state.
-//      */
-
-//     std::memcpy(m_user_input.key_event_prev_frame, m_user_input.key_event_this_frame, SDL_NUM_SCANCODES);
-//     std::memcpy(m_user_input.mouse_event_prev_frame, m_user_input.mouse_event_this_frame, ENV_MAX_MOUSE_BUTTONS);
-//     m_user_input.mouse_x_delta = 0;
-//     m_user_input.mouse_y_delta = 0;
-//     m_user_input.mouse_wheel_x_delta = 0;
-//     m_user_input.mouse_wheel_y_delta = 0;
-
-//     /*
-//      * Consuming SDL Events.
-//      * The events should be processed by all Environments.
-//      */
-    
-//     SDL_Event event;
-//     const tsl::robin_map<Environment_ID, Environment*, UUID_Hasher>& environments = g_objm.get_environments();
-    
-//     while (SDL_PollEvent(&event) != 0)
-//     {
-//         // Every window gets the chance to process the event.
-//         for (auto itr = environments.begin(); itr != environments.end(); itr++) {
-//             bool destroy_this_window = false;
-//             window_process_event(itr.value(), event, destroy_this_window);
-//             if (destroy_this_window) {
-//                 windows_to_destroy.push_back(itr.key());
-//             }
-//         }
-//     }
-
-// }
-
-// bool Environment::add_viewport(Camera_ID camera_id)
-// {
-//     m_cameras.push_back(camera_id);
-
-    
-    
-//     return true;
-// }
-
-// bool Environment::remove_camera_viewport(Camera_ID camera_id)
-// {
-    
-// }
-
 bool Environment::add_ibl_skybox(futils::Path file_path)
 {
-    // fmt::Skybox* skybox = fmt::Skybox::Builder().color({1, 0, 0, 0}).build(*m_engine);
-    // m_scene->setSkybox(skybox);
-
     int width, height, n_channels;
     stbi_info(file_path.getAbsolutePath().c_str(), &width, &height, nullptr);
     // load image as float
@@ -508,71 +386,209 @@ TDS_API glTF_Instance_ID gltf_inst_create_sibling(glTF_Instance_ID gltf_instance
     return instance.associated_env->create_gltf_instance_sibling(instance);
 }
 
-/* DONT FORGET: LEAKING MEMORY (just temporary) */
-Entity_ID Environment::add_plane(double3 center, double length_x, double length_z, const char* material_name, Quaternion rotation)
+Entity_ID Environment::add_and_delete_par_mesh(par_shapes_mesh* par_mesh, const char* material_name)
 {
-    uint32_t* indices = new uint32_t[6]{ 0, 1, 2, 2, 3, 0 };
+    fmath::float3 aabb[2] = {};
+    // we precompute the aabb, because we are freeing the memory before we use the aabb
+    par_shapes_compute_aabb(par_mesh, (float*) aabb);
+    
+    // Creating Vertex Buffer
 
-    filament::math::float3* vertices = new filament::math::float3[4]{
-        d3_to_fd3(quat_rotate_vector({ -length_x / 2.0, 0, -length_z / 2.0 }, rotation)) + d3_to_fd3(center),
-        d3_to_fd3(quat_rotate_vector({ -length_x / 2.0, 0,  length_z / 2.0 }, rotation)) + d3_to_fd3(center),
-        d3_to_fd3(quat_rotate_vector({  length_x / 2.0, 0,  length_z / 2.0 }, rotation)) + d3_to_fd3(center),
-        d3_to_fd3(quat_rotate_vector({  length_x / 2.0, 0, -length_z / 2.0 }, rotation)) + d3_to_fd3(center)
+    auto delete_par_points = [](void* buffer, size_t, void*) -> void {
+        PAR_FREE((decltype(par_mesh->points)) buffer);
     };
 
-    fmath::short4 tbn = fmath::packSnorm16(
-        fmath::mat3f::packTangentFrame(
-            fmath::mat3f{d3_to_fd3(quat_rotate_vector({ 1.0f, 0.0f, 0.0f }, rotation)),
-                         d3_to_fd3(quat_rotate_vector({ 0.0f, 0.0f, 1.0f }, rotation)),
-                         d3_to_fd3(quat_rotate_vector({ 0.0f, 1.0f, 0.0f }, rotation))}
-            ).xyzw);
+    fmath::short4* tangent_frame = nullptr;
+    auto delete_tangent_frame = [](void* buffer, size_t, void*) -> void {
+        PAR_FREE((decltype(tangent_frame)) buffer);
+    };
 
-    fmath::short4* normals = new fmath::short4[4]{ tbn, tbn, tbn, tbn };
+    auto vertex_buffer_builder = fmt::VertexBuffer::Builder()
+        .vertexCount(par_mesh->npoints);
+    
+    if (par_mesh->normals) {
+        // Converting Normals to tangent-frame (Tangent, Bitangent, Normal)
+        // Usually the tangent-frame also describes the orientation of the meshes texture,
+        // though we assume, that there is no texture. So we just compute an arbitray tangent/bitangent.
+        
+        // tds_assert(par_mesh->tcoords == nullptr);
+        
+        tangent_frame = new fmath::short4[par_mesh->npoints];
+        for (int i = 0; i < par_mesh->npoints; ++i) {
+            fmath::float3 normal = ((fmath::float3*) par_mesh->normals)[i];
+            fmath::float3 tangent_1 = cross(normal, fmath::float3{0.0, 0.0, 1.0});
+            fmath::float3 tangent_2 = cross(normal, fmath::float3{0.0, 1.0, 0.0});
 
-    fmt::VertexBuffer* vertex_buffer = fmt::VertexBuffer::Builder()
-        .vertexCount(4)
-        .bufferCount(2)
+            fmath::float3 tangent;
+            if (length(tangent_1) > length(tangent_2)) {
+                tangent = normalize(tangent_1);
+            }
+            else {
+                tangent = normalize(tangent_2);
+            }
+
+            fmath::float3 bitangent = normalize(cross(tangent, normal));
+            
+            tangent_frame[i] = fmath::packSnorm16(
+                fmath::mat3f::packTangentFrame(
+                    fmath::mat3f{tangent, bitangent, normal}).xyzw);
+        }
+        
+        vertex_buffer_builder.bufferCount(2)
+            .attribute(fmt::VertexAttribute::TANGENTS, 1, fmt::VertexBuffer::AttributeType::SHORT4)
+            .normalized(fmt::VertexAttribute::TANGENTS);
+    }
+    else {
+        vertex_buffer_builder.bufferCount(1);
+    }
+
+    fmt::VertexBuffer* vertex_buffer = vertex_buffer_builder
         .attribute(fmt::VertexAttribute::POSITION, 0, fmt::VertexBuffer::AttributeType::FLOAT3)
-        .attribute(fmt::VertexAttribute::TANGENTS, 1, fmt::VertexBuffer::AttributeType::SHORT4)
-        .normalized(fmt::VertexAttribute::TANGENTS)
         .build(*m_engine);
-
+        
     vertex_buffer->setBufferAt(*m_engine, 0, fmt::VertexBuffer::BufferDescriptor(
-                                  vertices, vertex_buffer->getVertexCount() * sizeof(vertices[0])));
-    vertex_buffer->setBufferAt(*m_engine, 1, fmt::VertexBuffer::BufferDescriptor(
-                                  normals, vertex_buffer->getVertexCount() * sizeof(normals[0])));
+                                   par_mesh->points, vertex_buffer->getVertexCount() * sizeof(fmath::float3), delete_par_points));
+    par_mesh->points = nullptr; // now the vertex_buffer owns the memory
 
+    
+    if (tangent_frame) {
+        vertex_buffer->setBufferAt(*m_engine, 1, fmt::VertexBuffer::BufferDescriptor(
+                                       tangent_frame, vertex_buffer->getVertexCount() * sizeof(tangent_frame[0]), delete_tangent_frame));
+    }
+
+    // Creating Index-Buffer
+
+    auto delete_par_indices = [](void* buffer, size_t, void*) -> void {
+        PAR_FREE((decltype(par_mesh->triangles)) buffer);
+    };
+
+    tds_assert(sizeof(PAR_SHAPES_T) == sizeof(uint16_t)); // using USHORT
+    
     fmt::IndexBuffer* index_buffer = fmt::IndexBuffer::Builder()
-        .indexCount(6)
+        .bufferType(fmt::IndexBuffer::IndexType::USHORT)
+        .indexCount(par_mesh->ntriangles * 3)
         .build(*m_engine);
 
     index_buffer->setBuffer(*m_engine, fmt::IndexBuffer::BufferDescriptor(
-                               indices, index_buffer->getIndexCount() * sizeof(uint32_t)));
+                                par_mesh->triangles, index_buffer->getIndexCount() * sizeof(uint32_t), delete_par_indices));
+    par_mesh->triangles = nullptr; // now the index_buffer owns the memory
+
+    // Creating a renderable entity
 
     futils::Entity plane_renderable = utils::EntityManager::get().create();
     fmt::RenderableManager::Builder(1)
-        .boundingBox({{0, 0, 0},
-                      { length_x / 2.0, 1e-4f, length_z / 2.0 }}) // this is bullshit, but still working (this code is depricated anyway)
-        // .material(0, create_material_instance(env, material_settings))
+        .boundingBox(fmt::Box().set(aabb[0], aabb[1]))
         .material(0, m_material_registry.getMaterialInstance(futils::CString(material_name)))
-        .geometry(0, fmt::RenderableManager::PrimitiveType::TRIANGLES,
-                  vertex_buffer, index_buffer, 0, 6)
-        .culling(false)
+        .geometry(0, fmt::RenderableManager::PrimitiveType::TRIANGLES, vertex_buffer, index_buffer, 0, par_mesh->ntriangles * 3)
+        .culling(true)
         .receiveShadows(true)
-        .castShadows(false)
+        .castShadows(true)
         .build(*m_engine, plane_renderable);
 
     m_scene->addEntity(plane_renderable);
+
+    par_shapes_free_mesh(par_mesh); // Frees everything that was stil managed by the par_mesh (ie. not nulled)
     
     return g_objm.add_object({plane_renderable, this});
 }
 
-TDS_API Entity_ID env_add_plane(double3 center, double length_x, double length_z, const char* material_name, Quaternion rotation)
+Entity_ID Environment::add_plane(double length_x, double length_z, const char* material_name)
+{
+    par_shapes_mesh* plane = par_shapes_create_plane(1, 1); // creates "unit" (1x1) plane with (slices * stacks * 2) = 2 triangles
+    float axis[3] = {1.0, 0.0, 0.0};
+    par_shapes_rotate(plane, -PAR_PI / 2.0, axis);
+    
+    { // Bottom part (Plane should be visible from both sides)
+        par_shapes_mesh* plane_bottom = par_shapes_create_plane(1, 1); // creates "unit" (1x1) plane with (slices * stacks * 2) = 2 triangles
+        par_shapes_rotate(plane_bottom, -PAR_PI / 2.0, axis);
+        par_shapes_invert(plane_bottom, 0, 0);
+        par_shapes_merge_and_free(plane, plane_bottom);
+    }
+    
+    par_shapes_translate(plane, -0.5, 0, 0.5);
+    par_shapes_scale(plane, length_x, 0, length_z);
+    
+    return add_and_delete_par_mesh(plane, material_name);
+}
+
+TDS_API Entity_ID env_add_plane(double length_x, double length_z, const char* material_name)
 {
     Environment* env = g_objm.get_active_environment();
     if (!env) return {TDS_INVALID_ID};
 
-    return env->add_plane(center, length_x, length_z, material_name, rotation);
+    return env->add_plane(length_x, length_z, material_name);
+}
+
+Entity_ID Environment::add_cylinder(double radius, double height, const char* material_name)
+{
+    const int slices = 100;
+    par_shapes_mesh* cylinder = par_shapes_create_cylinder(slices, 1); // creates "unit" (1x1) cylinder with 50 faces on the curvature
+    float bottom_center[3] = {0, 0, 0};
+    float bottom_normal[3] = {0, 0, 1};
+    par_shapes_mesh* bottom = par_shapes_create_disk(1, slices, bottom_center, bottom_normal);
+    par_shapes_invert(bottom, 0, 0); // normal = {0, 0, -1}; does not work. This is an alternative
+    par_shapes_merge_and_free(cylinder, bottom);
+    
+    float top_center[3] = {0, 0, 1};
+    float top_normal[3] = {0, 0, 1};
+    par_shapes_merge_and_free(cylinder, par_shapes_create_disk(1, slices, top_center, top_normal));
+
+    float axis[3] = {1, 0, 0};
+    par_shapes_rotate(cylinder, -PAR_PI / 2.0, axis);
+    par_shapes_scale(cylinder, radius, height, radius);
+    
+    return add_and_delete_par_mesh(cylinder, material_name);
+}
+
+TDS_API Entity_ID env_add_cylinder(double radius, double height, const char* material_name)
+{
+    Environment* env = g_objm.get_active_environment();
+    if (!env) return {TDS_INVALID_ID};
+
+    return env->add_cylinder(radius, height, material_name);
+}
+
+Entity_ID Environment::add_arrow(double radius, double length, const char* material_name)
+{
+    const int slices = 50;
+    par_shapes_mesh* arrow;
+    
+    { // Base
+        arrow = par_shapes_create_cylinder(slices, 1); // creates "unit" (1x1) cylinder with 50 faces on the curvature
+        float bottom_center[3] = {0, 0, 0};
+        float bottom_normal[3] = {0, 0, 1};
+        par_shapes_mesh* bottom = par_shapes_create_disk(1, slices, bottom_center, bottom_normal);
+        par_shapes_invert(bottom, 0, 0); // normal = {0, 0, -1}; does not work. This is an alternative
+        par_shapes_merge_and_free(arrow, bottom);
+    
+        par_shapes_scale(arrow, radius, radius, length);
+    }
+
+    { // Cone
+        par_shapes_mesh* cone = par_shapes_create_cone(slices, 1);
+        float bottom_center[3] = {0, 0, 0};
+        float bottom_normal[3] = {0, 0, 1};
+        par_shapes_mesh* bottom = par_shapes_create_disk(1, slices, bottom_center, bottom_normal);
+        par_shapes_invert(bottom, 0, 0); // normal = {0, 0, -1}; does not work. This is an alternative
+        par_shapes_merge_and_free(cone, bottom);
+
+        par_shapes_scale(cone, radius * 2, radius * 2, radius * 4);
+        par_shapes_translate(cone, 0, 0, length);
+        par_shapes_merge_and_free(arrow, cone);
+    }
+    
+    float axis[3] = {1, 0, 0};
+    par_shapes_rotate(arrow, -PAR_PI / 2.0, axis);
+    
+    return Entity_ID{ add_and_delete_par_mesh(arrow, material_name) };
+}
+
+TDS_API Entity_ID env_add_arrow(double radius, double length, const char* material_name)
+{
+    Environment* env = g_objm.get_active_environment();
+    if (!env) return {TDS_INVALID_ID};
+
+    return env->add_arrow(radius, length, material_name);
 }
 
 /* DONT FORGET: LEAKING MEMORY (just temporary) */
@@ -600,7 +616,6 @@ Entity_ID Environment::add_line(double3 begin, double3 end, const char* material
     index_buffer->setBuffer(*m_engine, fmt::IndexBuffer::BufferDescriptor(
                                 indices, index_buffer->getIndexCount() * sizeof(uint32_t)));
 
-    
     futils::Entity line_renderable = utils::EntityManager::get().create();
     fmt::RenderableManager::Builder(1)
         .boundingBox({d3_to_fd3(begin),

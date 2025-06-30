@@ -1,7 +1,4 @@
 
-// Building
-// g++ x11_filament.cpp -o x11_filament  -lX11 -lGL 
-
 #include "filament/SwapChain.h"
 #include "math/vec3.h"
 #include <X11/Xlib.h>
@@ -38,6 +35,9 @@
 #include <filament/Fence.h>
 
 #include <stb_image.h>
+
+#include <thread>
+#include <chrono>
 
 namespace fmt = filament;
 
@@ -127,7 +127,7 @@ int main(int argc, char** argv)
     screen_id=DefaultScreen(display);
     
     window=XCreateSimpleWindow(display,DefaultRootWindow(display),0,0,	
-                               300, 200, 5, WhitePixel(display,screen_id), BlackPixel(display,screen_id));
+                               1200, 800, 5, WhitePixel(display,screen_id), BlackPixel(display,screen_id));
 
     XSetWindowBackgroundPixmap(display, window, None);
 
@@ -179,18 +179,24 @@ int main(int argc, char** argv)
     
     while(true)
     {
-        XNextEvent(display, &ev);
-        if (ev.type == Expose) {
-            resize_window(display, window, &swap_chain, view, camera, engine);
+
+        if (XPending(display)) {
+            XNextEvent(display, &ev);
+            if (ev.type == Expose) {
+                resize_window(display, window, &swap_chain, view, camera, engine);
+            }
+        } else {
+            // fmt::Fence::waitAndDestroy(engine->createFence());
+            // XClearWindow(display, window);
+            if (renderer->beginFrame(swap_chain)) {
+                renderer->render(view);
+                renderer->endFrame();
+                // engine->flushAndWait();
+                // fmt::Fence::waitAndDestroy(engine->createFence());
+                printf("update\n");
+            }
         }
-        // fmt::Fence::waitAndDestroy(engine->createFence());
-        // XClearWindow(display, window);
-        if (renderer->beginFrame(swap_chain)) {
-            renderer->render(view);
-            renderer->endFrame();
-            // engine->flushAndWait();
-            fmt::Fence::waitAndDestroy(engine->createFence());
-	}
+        std::this_thread::sleep_for(std::chrono::milliseconds(2));
     }
 
     XFreeGC(display, gc);

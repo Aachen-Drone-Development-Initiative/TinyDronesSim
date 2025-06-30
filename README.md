@@ -22,10 +22,10 @@ TinyDronesSim is a tool for simulating the *tinydrone*.
       - `clang` **Version 14 or higher**
       - `lld` **Version 14 or higher**
       - `libglu1-mesa-dev` (`mesa-libGL-devel` on Fedora)
-      - `libsdl2-dev` (`SDL2-devel` on Fedora)
+      - `libsdl2-dev` (`SDL2-devel` on Fedora) (NICHT SICHER OB WIR DAS IMMERN)
       - `libc++-dev` (`libcxx-devel` and `libcxx-static` on Fedora) **Version 14 or higher**
       - `libc++abi-dev` (`libcxxabi-static` on Fedora) **Version 14 or higher**
-      - `libxi-dev` (`mesa-libGLU-devel` on Fedora)
+      - `libxi-dev` (`libXi-devel` on Fedora)
       - `libxcomposite-dev` (`libXcomposite-devel` on Fedora)
       - `libxxf86vm-dev` (`libXxf86vm-devel` on Fedora)
    4. Compile `nob.c` with your favorite C-compiler. You only have to do this once, `nob.c` recompiles automatically when changed.

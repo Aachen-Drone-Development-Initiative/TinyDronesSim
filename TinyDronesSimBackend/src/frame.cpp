@@ -75,15 +75,18 @@ Frame_ID Frame::create(Environment_ID env_id,
     frame->m_view->setViewport({0, 0, width, height});
 
     frame->m_renderer = env->create_filament_renderer();
+    fmt::Renderer::DisplayInfo disp_info = { .refreshRate = 120 };
+    frame->m_renderer->setDisplayInfo(disp_info);
+    
     // fmt::Renderer::FrameRateOptions options = {
-    //     float headRoomRatio = 0.0f;        //!< additional headroom for the GPU
-    //     float scaleRate = 1.0f / 8.0f;     //!< rate at which the system reacts to load changes
-    //     uint8_t history = 15;              //!< history size
-    //     uint8_t interval = 1;              //!< desired frame interval in unit of 1.0 / DisplayInfo::refreshRate
+    //     .headRoomRatio = 0.0f,        //!< additional headroom for the GPU
+    //     .scaleRate = 1.0f / 8.0f,     //!< rate at which the system reacts to load changes
+    //     .history = 15, // 15             //!< history size
+    //     .interval = 1              //!< desired frame interval in unit of 1.0 / DisplayInfo::refreshRate
     // };
-
-    // FrameRateOptions options = {};
-    // frame->m_renderer->setFrameRateOptions(FrameRateOptions const& options) noexcept;
+    // frame->m_renderer->setFrameRateOptions(options);
+    // frame->m_renderer->setVsyncTime(1);
+    
     if (!frame->m_renderer) {
         tds_soft_error("Failed to create Filament Renderer.");
         delete frame;
@@ -237,6 +240,9 @@ bool Frame::render()
         }
         
         m_renderer->endFrame();
+
+        // Environment* env = g_objm.get_object(m_env_id);
+        // fmt::Fence::waitAndDestroy(env->create_fence());
         
         return true;
     }

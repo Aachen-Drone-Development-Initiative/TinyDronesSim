@@ -15,17 +15,19 @@ class Viewport;
 #include <entity.hpp>
 #include <gltf_instance.hpp>
 class Joystick;
+class Plot;
+class Ctrl_Panel;
 
 struct Object_Manager {
     
-    Environment_ID     add_object(Environment* env);
-    Frame_ID           add_object(Frame* frame);
-    Camera_ID          add_object(Camera* camera);
-    Viewport_ID        add_object(Viewport* viewport);
-    Entity_ID          add_object(Entity filament_entity);
-    glTF_Instance_ID   add_object(glTF_Instance gltf_instance);
-    Joystick_ID        add_object(Joystick* joystick);
-
+    Environment_ID   add_object(Environment* env);
+    Frame_ID         add_object(Frame* frame);
+    Camera_ID        add_object(Camera* camera);
+    Viewport_ID      add_object(Viewport* viewport);
+    Entity_ID        add_object(Entity filament_entity);
+    glTF_Instance_ID add_object(glTF_Instance gltf_instance);
+    Joystick_ID      add_object(Joystick* joystick);
+    
     Environment*     get_object(Environment_ID id);
     Frame*           get_object(Frame_ID id);
     Camera*          get_object(Camera_ID id);

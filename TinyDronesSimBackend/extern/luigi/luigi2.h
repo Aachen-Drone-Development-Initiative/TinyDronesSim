@@ -436,8 +436,6 @@ typedef struct UIElement {
 
 #define UI_SHORTCUT(code, ctrl, shift, alt, invoke, cp) ((UIShortcut) { (code), (ctrl), (shift), (alt), (invoke), (cp) })
 
-class Viewport;
-
 typedef struct UIWindow {
 #define UI_WINDOW_MENU (1 << 0)
 #define UI_WINDOW_INSPECTOR (1 << 1)
@@ -471,11 +469,6 @@ typedef struct UIWindow {
     bool ctrl, shift, alt;
 
     UIRectangle updateRegion;
-
-    Viewport* viewport;
-    bool mouse_left_down;
-    bool mouse_middle_down;
-    bool mouse_right_down;
 
 #ifdef UI_DEBUG
     float lastFullFillCount;
@@ -631,6 +624,7 @@ typedef struct UISlider {
     UIElement e;
     double position;
     int steps;
+    double min, max;
     void (*invoke)(double position, void *cp);
 } UISlider;
 
@@ -2714,7 +2708,7 @@ int _UICodeMessage(UIElement *element, UIMessage message, int di, void *dp) {
             int x = UIDrawStringHighlighted(painter, lineBounds, code->content + code->lines[i].offset, code->lines[i].bytes, code->tabSize);
             int y = (lineBounds.t + lineBounds.b - UIMeasureStringHeight()) / 2;
 
-            UICodeDecorateLine m = { 0 };
+            UICodeDecorateLine m = {};
             m.x = x, m.y = y, m.bounds = lineBounds, m.index = i + 1, m.painter = painter;
             UIElementMessage(element, UI_MSG_CODE_DECORATE_LINE, 0, &m);
 
@@ -2786,7 +2780,7 @@ void UICodeInsertContent(UICode *code, const char *content, ptrdiff_t byteCount,
 
     for (intptr_t i = 0; i <= byteCount && lineIndex < lineCount; i++) {
         if (content[i] == '\n' || i == byteCount) {
-            UICodeLine line = { 0 };
+            UICodeLine line = {};
             line.offset = offset + code->contentBytes;
             line.bytes = i - offset;
             code->lines[code->lineCount + lineIndex] = line;
@@ -2878,16 +2872,16 @@ int _UISliderMessage(UIElement *element, UIMessage message, int di, void *dp) {
 }
 
 void UISliderSetPosition(UISlider *slider, double position, bool sendChangedMessage) {
-    if (position == slider->position) return;
     if (slider->steps > 1) position = (int) (position * (slider->steps - 1) + 0.5f) / (float) (slider->steps - 1);
     if (position < 0) position = 0;
     if (position > 1) position = 1;
+    if (position == slider->position) return;
     slider->position = position;
     if (sendChangedMessage) UIElementMessage(&slider->e, UI_MSG_VALUE_CHANGED, 0, 0);
     UIElementRepaint(&slider->e, NULL);
     
     if (slider->invoke) {
-        slider->invoke(slider->position, slider->e.cp);
+        slider->invoke(slider->position * (slider->max - slider->min) + slider->min, slider->e.cp);
     }
 }
 
@@ -2975,7 +2969,7 @@ void UITableResizeColumns(UITable *table) {
     position = 0;
 
     char buffer[256];
-    UITableGetItem m = { 0 };
+    UITableGetItem m = {};
     m.buffer = buffer;
     m.bufferBytes = sizeof(buffer);
 
@@ -3015,7 +3009,7 @@ int _UITableMessage(UIElement *element, UIMessage message, int di, void *dp) {
         char buffer[256];
         UIRectangle row = bounds;
         int rowHeight = UI_SIZE_TABLE_ROW * element->window->scale;
-        UITableGetItem m = { 0 };
+        UITableGetItem m = {};
         m.buffer = buffer;
         m.bufferBytes = sizeof(buffer);
         row.t += UI_SIZE_TABLE_HEADER * table->e.window->scale;
@@ -3215,7 +3209,7 @@ int _UITextboxMessage(UIElement *element, UIMessage message, int di, void *dp) {
         bool focused = element->window->focused == element;
 
         if (UI_RECT_VALID(painter->clip)) {
-            int width = UIMeasureStringWidth(textbox->string, textbox->bytes);
+            /* int width = UIMeasureStringWidth(textbox->string, textbox->bytes); */
             int height = UIMeasureStringHeight();
             int x = textBounds.l;
             int y = (textBounds.t + textBounds.b - height) / 2;
@@ -4322,17 +4316,14 @@ bool _UIWindowInputEvent(UIWindow *window, UIMessage message, int di, void *dp) 
                 if (ui.quit || ui.dialogResult) goto end;
                 _UIWindowSetPressed(window, NULL, 1);
             }
-            window->mouse_left_down = false;
         } else if (message == UI_MSG_MIDDLE_UP && window->pressedButton == 2) {
             UIElementMessage(window->pressed, UI_MSG_MIDDLE_UP, di, dp);
             if (ui.quit || ui.dialogResult) goto end;
             _UIWindowSetPressed(window, NULL, 2);
-            window->mouse_middle_down = false;
         } else if (message == UI_MSG_RIGHT_UP && window->pressedButton == 3) {
             UIElementMessage(window->pressed, UI_MSG_RIGHT_UP, di, dp);
             if (ui.quit || ui.dialogResult) goto end;
             _UIWindowSetPressed(window, NULL, 3);
-            window->mouse_right_down = false;
         }
     }
 
@@ -4350,7 +4341,9 @@ bool _UIWindowInputEvent(UIWindow *window, UIMessage message, int di, void *dp) 
         if (ui.quit || ui.dialogResult) goto end;
     }
 
-    if (!window->pressed) {
+    // Removed this check because I still need these events to be processed by the window even when an element is 'pressed'
+    /* if (!window->pressed) */
+    {
         UIElement *hovered = UIElementFindByPoint(&window->e, window->cursorX, window->cursorY);
 
         if (message == UI_MSG_MOUSE_MOVE) {
@@ -4366,19 +4359,16 @@ bool _UIWindowInputEvent(UIWindow *window, UIMessage message, int di, void *dp) 
             if ((window->e.flags & UI_WINDOW_MENU) || !_UIMenusClose()) {
                 _UIWindowSetPressed(window, hovered, 1);
                 UIElementMessage(hovered, UI_MSG_LEFT_DOWN, di, dp);
-                window->mouse_left_down = true;
             }
         } else if (message == UI_MSG_MIDDLE_DOWN) {
             if ((window->e.flags & UI_WINDOW_MENU) || !_UIMenusClose()) {
                 _UIWindowSetPressed(window, hovered, 2);
                 UIElementMessage(hovered, UI_MSG_MIDDLE_DOWN, di, dp);
-                window->mouse_middle_down = true;
             }
         } else if (message == UI_MSG_RIGHT_DOWN) {
             if ((window->e.flags & UI_WINDOW_MENU) || !_UIMenusClose()) {
                 _UIWindowSetPressed(window, hovered, 3);
                 UIElementMessage(hovered, UI_MSG_RIGHT_DOWN, di, dp);
-                window->mouse_right_down = true;
             }
         } else if (message == UI_MSG_MOUSE_WHEEL) {
             UIElement *element = hovered;
@@ -4949,7 +4939,7 @@ UIWindow *UIWindowCreate(UIWindow *owner, uint32_t flags, const char *cTitle, in
 
     XSetWindowAttributes attributes = {};
     attributes.override_redirect = (bool) (flags & (UI_WINDOW_MENU | UI_WINDOW_PARENT_MANAGED_SUBWINDOW));
-    /* attributes.override_redirect = (bool) (flags & (UI_WINDOW_MENU)); */
+
 
     Window parent_window = (flags & UI_WINDOW_PARENT_MANAGED_SUBWINDOW) ? owner->window : DefaultRootWindow(ui.display);
 
@@ -5218,7 +5208,7 @@ void UIMenuShow(UIMenu *menu) {
         int status;
     };
 
-    struct Hints hints = { 0 };
+    struct Hints hints = {};
     hints.flags = 2;
     XChangeProperty(ui.display, menu->e.window->window, properties[2], properties[2], 32, PropModeReplace, (uint8_t *) &hints, 5);
 
@@ -5312,8 +5302,7 @@ bool _UIProcessEvent(XEvent *event) {
             char text[32];
             KeySym symbol = NoSymbol;
             Status status;
-            // printf("%ld, %s\n", symbol, text);
-            UIKeyTyped m = { 0 };
+            UIKeyTyped m = {};
             m.textBytes = Xutf8LookupString(window->xic, &event->xkey, text, sizeof(text) - 1, &symbol, &status); 
             m.text = text;
             m.code = XLookupKeysym(&event->xkey, 0);
@@ -5369,7 +5358,7 @@ bool _UIProcessEvent(XEvent *event) {
             char text[32];
             KeySym symbol = NoSymbol;
             Status status;
-            UIKeyTyped m = { 0 };
+            UIKeyTyped m = {};
             m.textBytes = Xutf8LookupString(window->xic, &event->xkey, text, sizeof(text) - 1, &symbol, &status); 
             m.text = text;
             m.code = XLookupKeysym(&event->xkey, 0);
@@ -5387,7 +5376,7 @@ bool _UIProcessEvent(XEvent *event) {
     } else if (event->type == ClientMessage && event->xclient.message_type == ui.dndPositionID) {
         UIWindow *window = _UIFindWindow(event->xclient.window);
         if (!window) return false;
-        XClientMessageEvent m = { 0 };
+        XClientMessageEvent m = {};
         m.type = ClientMessage;
         m.display = event->xclient.display;
         m.window = (Window) event->xclient.data.l[0];
@@ -5405,7 +5394,7 @@ bool _UIProcessEvent(XEvent *event) {
         // TODO Dropping text.
 
         if (!XConvertSelection(ui.display, ui.dndSelectionID, ui.uriListID, ui.primaryID, window->window, event->xclient.data.l[2])) {
-            XClientMessageEvent m = { 0 };
+            XClientMessageEvent m = {};
             m.type = ClientMessage;
             m.display = ui.display;
             m.window = window->dragSource;
@@ -5475,7 +5464,7 @@ bool _UIProcessEvent(XEvent *event) {
 
         XFree(data);
 
-        XClientMessageEvent m = { 0 };
+        XClientMessageEvent m = {};
         m.type = ClientMessage;
         m.display = ui.display;
         m.window = window->dragSource;
@@ -5584,7 +5573,7 @@ void UIWindowPostMessage(UIWindow *window, UIMessage message, void *_dp) {
     // so send a specially crafted key press event instead.
     // TODO Maybe ClientMessage is what this should use?
     uintptr_t dp = (uintptr_t) _dp;
-    XKeyEvent event = { 0 };
+    XKeyEvent event = {};
     event.display = ui.display;
     event.window = window->window;
     event.root = DefaultRootWindow(ui.display);
@@ -5605,7 +5594,12 @@ void UIWindowPostMessage(UIWindow *window, UIMessage message, void *_dp) {
 }
 
 void UIWindowMoveResize(UIWindow* window, int x, int y, uint32_t width, uint32_t height) {
-    XMoveResizeWindow(ui.display, window->window, x, y, width, height);
+    XWindowAttributes window_attribs = {};
+    XGetWindowAttributes(ui.display, window->window, &window_attribs);
+    
+    if (window_attribs.x != x || window_attribs.y != y || window_attribs.width != (int) width || window_attribs.height != (int) height) {
+        XMoveResizeWindow(ui.display, window->window, x, y, width, height);
+    }
 }
 
 void UIWindowHide(UIWindow* window) {
@@ -5617,7 +5611,14 @@ void UIWindowShow(UIWindow* window) {
     XMapWindow(ui.display, window->window);
     XRaiseWindow(ui.display, window->window);
     XFlush(ui.display);
-    UIElementMessage(&window->e, UI_MSG_PAINT, 0, 0);
+
+    // Wait until the window was mapped
+    XEvent event;
+    do {
+        XNextEvent(ui.display, &event);
+    } while (event.type != MapNotify || event.xmap.window != window->window);
+    
+    UIElementRefresh(&window->e);
 }
 
 #endif

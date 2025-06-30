@@ -199,11 +199,11 @@ bool Object_Manager::destroy_all_objects()
     UUID current_max_id = get_current_max_id();
     for (UUID uuid = current_max_id; uuid.id > m_guaranteed_invalid_ids_between_here_and_0.id; --uuid.id)
     {
-        if (m_environments.find({uuid}) != m_environments.end()) destroy_object(Environment_ID{uuid});
-        else if (m_frames.find({uuid}) != m_frames.end())        destroy_object(Frame_ID{uuid});
-        else if (m_cameras.find({uuid}) != m_cameras.end())      destroy_object(Camera_ID{uuid});
-        else if (m_viewports.find({uuid}) != m_viewports.end())  destroy_object(Viewport_ID{uuid});
-        else if (m_joysticks.find({uuid}) != m_joysticks.end())  destroy_object(Joystick_ID{uuid});
+        if (m_environments.find({uuid}) != m_environments.end())    destroy_object(Environment_ID{uuid});
+        else if (m_frames.find({uuid}) != m_frames.end())           destroy_object(Frame_ID{uuid});
+        else if (m_cameras.find({uuid}) != m_cameras.end())         destroy_object(Camera_ID{uuid});
+        else if (m_viewports.find({uuid}) != m_viewports.end())     destroy_object(Viewport_ID{uuid});
+        else if (m_joysticks.find({uuid}) != m_joysticks.end())     destroy_object(Joystick_ID{uuid});
     }
 
     m_environments.clear();
@@ -278,7 +278,7 @@ TDS_API bool env_exists(Environment_ID id)         { return g_objm.object_exists
 TDS_API bool frame_exists(Frame_ID id)             { return g_objm.object_exists(id); }
 TDS_API bool camera_exists(Camera_ID id)           { return g_objm.object_exists(id); }
 TDS_API bool viewport_exists(Viewport_ID id)       { return g_objm.object_exists(id); }
-TDS_API bool entity_exists(Entity_ID id)  { return g_objm.object_exists(id); }
+TDS_API bool entity_exists(Entity_ID id)           { return g_objm.object_exists(id); }
 TDS_API bool gltf_inst_exists(glTF_Instance_ID id) { return g_objm.object_exists(id); }
 TDS_API bool joystick_exists(Joystick_ID id)       { return g_objm.object_exists(id); }
 

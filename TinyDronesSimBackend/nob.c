@@ -3,17 +3,17 @@
 #define NOB_EXPERIMENTAL_DELETE_OLD
 #include "nob.h"
 
-/* #define DEBUG_BUILD */
-#define RELEASE_BUILD
+#define DEBUG_BUILD
+/* #define RELEASE_BUILD */
 
 // We need to use clang and libc++, because filament is built with clang.
 #define CXX "clang++"
 #define CC "clang"
 
 #ifdef DEBUG_BUILD
-    #define CPPFLAGS "-std=c++17", "-stdlib=libc++", "-Wall", "-Wextra", "-Wno-return-type-c-linkage", "-g" //, "-fsanitize=undefined"
+#define CPPFLAGS "-std=c++17", "-stdlib=libc++", "-Wall", "-Wextra", "-Wno-return-type-c-linkage", "-Wno-unused-parameter", "-g" //, "-fsanitize=undefined"
 #else
-    #define CPPFLAGS "-std=c++17", "-stdlib=libc++", "-Wall", "-Wextra", "-Wno-return-type-c-linkage", "-O3"
+#define CPPFLAGS "-std=c++17", "-stdlib=libc++", "-Wall", "-Wextra", "-Wno-return-type-c-linkage", "-Wno-unused-parameter", "-O3"
 #endif
 
 #define PROJECT_NAME "TinyDronesSimBackend"
@@ -161,6 +161,9 @@ bool build_google_filament(Cmd *cmd)
                    "-DCMAKE_INSTALL_PREFIX=../debug/filament",
                    "-DCMAKE_CXX_FLAGS=\"-fPIC\"",
                    "-DCMAKE_C_FLAGS=\"-fPIC\"",
+                   "-DFILAMENT_SKIP_SAMPLES=ON",
+                   "-DFILAMENT_BUILD_FILAMAT=OFF",
+                   "-DFILAMENT_SUPPORTS_METAL=OFF",
                    "../..");
 #else
         cmd_append(cmd, "cmake", "-G", "Unix Makefiles",
@@ -170,6 +173,9 @@ bool build_google_filament(Cmd *cmd)
                    "-DCMAKE_INSTALL_PREFIX=../release/filament",
                    "-DCMAKE_CXX_FLAGS=\"-fPIC\"",
                    "-DCMAKE_C_FLAGS=\"-fPIC\"",
+                   "-DFILAMENT_SKIP_SAMPLES=ON",
+                   "-DFILAMENT_BUILD_FILAMAT=OFF",
+                   "-DFILAMENT_SUPPORTS_METAL=OFF",
                    "../..");
 #endif
     
@@ -234,6 +240,7 @@ bool compile_and_embed_filament_materials(Cmd *cmd)
 }
 
 #define LUIGI_DIR EXTERN_DIR "luigi/"
+#define PAR_SHAPES_DIR EXTERN_DIR "par_shapes/"
 
 #define FILAMENT_INCLUDE_PATH               FILAMENT_DIR "filament/include/"
 #define FILAMENT_BACKEND_INCLUDE_PATH       FILAMENT_DIR "filament/backend/include/"
@@ -248,74 +255,48 @@ bool compile_and_embed_filament_materials(Cmd *cmd)
 #define FILAMENT_ROBIN_MAP_INCLUDE_PATH     FILAMENT_DIR "third_party/robin-map/"
 
 const char* all_filament_include_paths[] = {
-    "-I" FILAMENT_INCLUDE_PATH,
-    "-I" FILAMENT_BACKEND_INCLUDE_PATH,
-    "-I" FILAMENT_UTILS_INCLUDE_PATH,
-    "-I" FILAMENT_MATH_INCLUDE_PATH,
-    "-I" FILAMENT_FILAMESH_INCLUDE_PATH,
-    "-I" FILAMENT_FILAMAT_INCLUDE_PATH,
-    "-I" FILAMENT_FILABRIDGE_INCLUDE_PATH,
-    "-I" FILAMENT_IBLPREFILTER_INCLUDE_PATH,
-    "-I" FILAMENT_GLTFIO_INCLUDE_PATH,
-    "-I" FILAMENT_ROBIN_MAP_INCLUDE_PATH,
-    "-I" FILAMENT_STB_INCLUDE_PATH,
+    "-I" FILAMENT_DIR "filament/include/",
+    "-I" FILAMENT_DIR "filament/backend/include/",
+    "-I" FILAMENT_DIR "libs/filameshio/include/",
+    "-I" FILAMENT_DIR "libs/filamat/include/",
+    "-I" FILAMENT_DIR "libs/utils/include/",
+    "-I" FILAMENT_DIR "libs/math/include/",
+    "-I" FILAMENT_DIR "libs/filabridge/include/",
+    "-I" FILAMENT_DIR "libs/iblprefilter/include/",
+    "-I" FILAMENT_DIR "libs/gltfio/include/",
+    "-I" FILAMENT_DIR "third_party/stb/",
+    "-I" FILAMENT_DIR "third_party/robin-map/",
 };
 
 #define FILAMENT_LIBS        FILAMENT_BUILD_DIR FILAMENT_BUILD_FOLDER "libs/"
 #define FILAMENT_THIRD_PARTY FILAMENT_BUILD_DIR FILAMENT_BUILD_FOLDER "third_party/"
 
-#define FILAMENT_LIB_PATH         FILAMENT_BUILD_DIR FILAMENT_BUILD_FOLDER "filament/"
-#define FILAMENT_BACKEND_LIB_PATH FILAMENT_BUILD_DIR FILAMENT_BUILD_FOLDER "filament/backend/"
-#define FILAMENT_SHADERS_LIB_PATH FILAMENT_BUILD_DIR FILAMENT_BUILD_FOLDER "shaders/"
-#define FILAMENT_BLUEGL_LIB_PATH        FILAMENT_LIBS "bluegl/"
-#define FILAMENT_BLUEVK_LIB_PATH        FILAMENT_LIBS "bluevk/"
-#define FILAMENT_UTILS_LIB_PATH         FILAMENT_LIBS "utils/"
-#define FILAMENT_FILABRIDGE_LIB_PATH    FILAMENT_LIBS "filabridge/"
-#define FILAMENT_FILAFLAT_LIB_PATH      FILAMENT_LIBS "filaflat/"
-#define FILAMENT_GEOMETRY_LIB_PATH      FILAMENT_LIBS "geometry/"
-#define FILAMENT_GLTFIO_LIB_PATH        FILAMENT_LIBS "gltfio/"
-#define FILAMENT_FILAMESHIO_LIB_PATH    FILAMENT_LIBS "filameshio/"
-#define FILAMENT_IBL_PATH               FILAMENT_LIBS "ibl/"
-#define FILAMENT_IBL_PREFILTER_LIB_PATH FILAMENT_LIBS "iblprefilter/"
-#define FILAMENT_FILAMAT_LIB_PATH       FILAMENT_LIBS "filamat/"
-#define FILAMENT_MATDBG_LIB_PATH        FILAMENT_LIBS "matdbg/"
-#define FILAMENT_SMOLV_LIB_PATH           FILAMENT_THIRD_PARTY "smol-v/tnt/"
-#define FILAMENT_GLSLANG_LIB_PATH         FILAMENT_THIRD_PARTY "glslang/tnt/glslang/"
-#define FILAMENT_DRACO_DEC_LIB_PATH       FILAMENT_THIRD_PARTY "draco/tnt/"
-#define FILAMENT_MIKKTSPACE_LIB_PATH      FILAMENT_THIRD_PARTY "mikktspace/"
-#define FILAMENT_SPIRV_LIB_PATH           FILAMENT_THIRD_PARTY "glslang/tnt/SPIRV/"
-#define FILAMENT_SPIRV_CROSS_LIB_PATH     FILAMENT_THIRD_PARTY "spirv-cross/tnt/"
-#define FILAMENT_SPIRV_TOOLS_LIB_PATH     FILAMENT_THIRD_PARTY "spirv-tools/source/"
-#define FILAMENT_SPIRV_TOOLS_OPT_LIB_PATH FILAMENT_THIRD_PARTY "spirv-tools/source/opt/"
-#define FILAMENT_MESH_OPTIMIZER_LIB_PATH  FILAMENT_THIRD_PARTY "meshoptimizer/tnt/"
-#define FILAMENT_CIVETSERVER_LIB_PATH     FILAMENT_THIRD_PARTY "civetweb/tnt/"
-
 const char* all_filament_lib_paths[] = {
-    "-L" FILAMENT_LIB_PATH,
-    "-L" FILAMENT_BACKEND_LIB_PATH,
-    "-L" FILAMENT_SHADERS_LIB_PATH,
-    "-L" FILAMENT_BLUEGL_LIB_PATH,
-    "-L" FILAMENT_BLUEVK_LIB_PATH,
-    "-L" FILAMENT_UTILS_LIB_PATH,
-    "-L" FILAMENT_FILABRIDGE_LIB_PATH,
-    "-L" FILAMENT_FILAFLAT_LIB_PATH,
-    "-L" FILAMENT_GEOMETRY_LIB_PATH,
-    "-L" FILAMENT_GLTFIO_LIB_PATH,
-    "-L" FILAMENT_FILAMESHIO_LIB_PATH,
-    "-L" FILAMENT_IBL_PATH,
-    "-L" FILAMENT_IBL_PREFILTER_LIB_PATH,
-    "-L" FILAMENT_FILAMAT_LIB_PATH,
-    "-L" FILAMENT_SMOLV_LIB_PATH,
-    "-L" FILAMENT_GLSLANG_LIB_PATH,
-    "-L" FILAMENT_DRACO_DEC_LIB_PATH,
-    "-L" FILAMENT_MIKKTSPACE_LIB_PATH,
-    "-L" FILAMENT_SPIRV_LIB_PATH,
-    "-L" FILAMENT_SPIRV_CROSS_LIB_PATH,
-    "-L" FILAMENT_SPIRV_TOOLS_LIB_PATH,
-    "-L" FILAMENT_SPIRV_TOOLS_OPT_LIB_PATH,
-    "-L" FILAMENT_MESH_OPTIMIZER_LIB_PATH,
-    "-L" FILAMENT_MATDBG_LIB_PATH,
-    "-L" FILAMENT_CIVETSERVER_LIB_PATH,
+    "-L" FILAMENT_BUILD_DIR FILAMENT_BUILD_FOLDER "filament/",
+    "-L" FILAMENT_BUILD_DIR FILAMENT_BUILD_FOLDER "filament/backend/",
+    "-L" FILAMENT_BUILD_DIR FILAMENT_BUILD_FOLDER "shaders/",
+    "-L" FILAMENT_LIBS "bluegl/",
+    "-L" FILAMENT_LIBS "bluevk/",
+    "-L" FILAMENT_LIBS "utils/",
+    "-L" FILAMENT_LIBS "filabridge/",
+    "-L" FILAMENT_LIBS "filaflat/",
+    "-L" FILAMENT_LIBS "geometry/",
+    "-L" FILAMENT_LIBS "gltfio/",
+    "-L" FILAMENT_LIBS "filameshio/",
+    "-L" FILAMENT_LIBS "ibl/",
+    "-L" FILAMENT_LIBS "iblprefilter/",
+    "-L" FILAMENT_LIBS "filamat/",
+    "-L" FILAMENT_LIBS "matdbg/",
+    "-L" FILAMENT_THIRD_PARTY "smol-v/tnt/",
+    "-L" FILAMENT_THIRD_PARTY "glslang/tnt/glslang/",
+    "-L" FILAMENT_THIRD_PARTY "draco/tnt/",
+    "-L" FILAMENT_THIRD_PARTY "mikktspace/",
+    "-L" FILAMENT_THIRD_PARTY "glslang/tnt/SPIRV/",
+    "-L" FILAMENT_THIRD_PARTY "spirv-cross/tnt/",
+    "-L" FILAMENT_THIRD_PARTY "spirv-tools/source/",
+    "-L" FILAMENT_THIRD_PARTY "spirv-tools/source/opt/",
+    "-L" FILAMENT_THIRD_PARTY "meshoptimizer/tnt/",
+    "-L" FILAMENT_THIRD_PARTY "civetweb/tnt/",
 };
 
 const char *all_filament_libs[] = {
@@ -333,15 +314,6 @@ const char *all_filament_libs[] = {
 
 bool build_libtds_shared(Cmd *cmd)
 {
-    // build command
-    // -fPIC - 'position independet code' necessary for shared libraries
-    // -fvisibility=hidden - hides all symbols by default, we have the macro TDS_API to exclude only the api functions from this rule
-    cmd_append(cmd, CXX, CPPFLAGS, "-fPIC", "-fvisibility=hidden", "-c");
-
-    // include paths
-    cmd_append(cmd, "-I" INCLUDE_DIR, "-I" LUIGI_DIR);
-    cmd_append_static_array(cmd, all_filament_include_paths);
-
     // source files
     const char* source_files[] = {
         SRC_DIR "camera.cpp",
@@ -355,17 +327,33 @@ bool build_libtds_shared(Cmd *cmd)
         SRC_DIR "math.cpp",
         SRC_DIR "mesh.cpp",
         SRC_DIR "object_manager.cpp",
+        SRC_DIR "par_shapes.cpp",
         SRC_DIR "stb_image.cpp",
         SRC_DIR "viewport.cpp",
+        
         // cpp files generated from binaries
         ASSET_DIR "sandboxLit.cpp",
         ASSET_DIR "sandboxUnlit.cpp",
     };
-    cmd_append_static_array(cmd, source_files);
 
-    // execute build command
-    if (!cmd_run_sync_and_reset(cmd)) return false;
+    // Compiling to object files asynchronously
+    Nob_Procs processes = {};
+    for (int i = 0; i < NOB_ARRAY_LEN(source_files); ++i) {
+        // build command
+        // -fPIC - 'position independet code' necessary for shared libraries
+        // -fvisibility=hidden - hides all symbols by default, we have the macro TDS_API to exclude only the api functions from this rule
+        cmd_append(cmd, CXX, CPPFLAGS, "-fPIC", "-fvisibility=hidden", "-c");
 
+        // include paths
+        cmd_append(cmd, "-I" INCLUDE_DIR, "-I" LUIGI_DIR, "-I" PAR_SHAPES_DIR);
+        cmd_append_static_array(cmd, all_filament_include_paths);
+
+        cmd_append(cmd, source_files[i]);
+        nob_da_append(&processes, cmd_run_async_and_reset(cmd)); // execute build command
+    }
+    
+    if (!nob_procs_wait(processes)) return false; // wait for processes to finish and return false if an error occured
+    
     // link command
     cmd_append(cmd, CXX, "-fPIC", "-fuse-ld=lld", "-shared", "-o", TDSLIB_TARGET_NAME);
 
@@ -394,23 +382,6 @@ bool build_libtds_shared(Cmd *cmd)
     return true;
 }
 
-#define TEST_LIBTDS_TARGET_NAME "test_libtds"
-
-bool build_test_libtds(Cmd *cmd)
-{
-    cmd_append(cmd, CXX, CPPFLAGS,
-               "-o", TEST_LIBTDS_TARGET_NAME,
-               "-I", INCLUDE_DIR,
-               "-I", FILAMENT_MATH_INCLUDE_PATH,
-               TESTS_DIR "test_libtds.cpp",
-               BUILD_DIR LIB_FOLDER TDSLIB_TARGET_NAME);
-
-    if (!cmd_run_sync_and_reset(cmd)) return false;
-    move_local_file_to_folder(TEST_LIBTDS_TARGET_NAME, BUILD_DIR BIN_FOLDER);
-    build_success(TEST_LIBTDS_TARGET_NAME);
-    return true;
-}
-
 #define TEST_LIBTDS_SIMPLE_TARGET_NAME "test_libtds_simple"
 
 bool build_test_libtds_simple(Cmd *cmd)
@@ -425,8 +396,6 @@ bool build_test_libtds_simple(Cmd *cmd)
     build_success(TEST_LIBTDS_SIMPLE_TARGET_NAME);
     return true;
 }
-
-
 
 #define TEST_JOYSTICK_TARGET_NAME "test_joystick"
 
@@ -443,15 +412,34 @@ bool build_test_joystick(Cmd *cmd)
     return true;
 }
 
+#define TEST_MESHES_TARGET_NAME "test_meshes"
+
+bool build_test_meshes(Cmd *cmd)
+{
+    cmd_append(cmd, CXX, CPPFLAGS,
+               "-o", TEST_MESHES_TARGET_NAME,
+               "-I", INCLUDE_DIR,
+               "-I", FILAMENT_MATH_INCLUDE_PATH,
+               TESTS_DIR "test_meshes.cpp",
+               BUILD_DIR LIB_FOLDER TDSLIB_TARGET_NAME);
+
+    if (!cmd_run_sync_and_reset(cmd)) return false;
+    move_local_file_to_folder(TEST_MESHES_TARGET_NAME, BUILD_DIR BIN_FOLDER);
+    build_success(TEST_MESHES_TARGET_NAME);
+    return true;
+}
+
 #define EXP_X11_FILAMENT_TARGET_NAME "exp_x11_filament"
 
 bool build_experiment_x11_filament(Cmd* cmd) {
     cmd_append(cmd, CXX, CPPFLAGS);
     cmd_append_static_array(cmd, all_filament_include_paths);
-    cmd_append(cmd, EXPERIMENTS_DIR "exp_x11_filament.cpp",
-               SRC_DIR "stb_image.cpp",
-               "-o" EXP_X11_FILAMENT_TARGET_NAME);
+    cmd_append(cmd, "-c", EXPERIMENTS_DIR "exp_x11_filament.cpp", SRC_DIR "stb_image.cpp");
 
+    if (!cmd_run_sync_and_reset(cmd)) return false;
+
+    cmd_append(cmd, CXX, "-fPIC", "-fuse-ld=lld", "-o", EXP_X11_FILAMENT_TARGET_NAME, "exp_x11_filament.o", "stb_image.o");
+    
     cmd_append_static_array(cmd, all_filament_lib_paths);
     cmd_append_static_array(cmd, all_filament_libs);
     const char* libs[] = {
@@ -557,6 +545,7 @@ int main(int argc, char **argv)
     bool compile_materials = false;
     bool build_filament = false;
     bool build_strliteral = false;
+    bool build_experiments = false;
 
     // No arguments means, nothing will happen.
     if (argc == 0) {
@@ -590,6 +579,9 @@ int main(int argc, char **argv)
         }
         else if (!strcmp(nob_cmd, "strliteral")) {
             build_strliteral = true; 
+        }
+        else if (!strcmp(nob_cmd, "exp")) {
+            build_experiments = true;
         }
         else if (!strcmp(nob_cmd, "all")) {
             build_libtds = true; 
@@ -628,13 +620,15 @@ int main(int argc, char **argv)
 
     if (build_tests) {
         if (!build_test_libtds_simple(&cmd)) return 1;
-        /* if (!build_test_libtds(&cmd)) return 1; */
+        if (!build_test_meshes(&cmd)) return 1;
         /* if (!build_test_joystick(&cmd)) return 1; */
     }
 
-    /* if (!build_experiment_sdl_filament(&cmd)) return 1; */
-    /* if (!build_experiment_x11_filament(&cmd)) return 1; */
-    /* if (!build_experiment_luigi_filament(&cmd)) return 1; */
+    if (build_experiments) {
+        /* if (!build_experiment_sdl_filament(&cmd)) return 1; */
+        if (!build_experiment_x11_filament(&cmd)) return 1;
+        /* if (!build_experiment_luigi_filament(&cmd)) return 1; */
+    }
 
     return 0;
 }

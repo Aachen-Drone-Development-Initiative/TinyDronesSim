@@ -4,6 +4,8 @@
 #include <filameshio/MeshReader.h>
 #include <utils/EntityManager.h>
 
+#include <par_shapes.h>
+
 #include <vector>
 
 namespace filament {
@@ -50,15 +52,19 @@ public:
     bool add_camera_viewport(Camera_ID camera_id);
     bool remove_camera_viewport(Camera_ID camera_id);
 
-    Entity_ID add_filamesh_from_file(futils::Path file_path);
     bool add_lit_material(const char* material_name, float3 base_color, float roughness, float metallic, float reflectance, float sheen_color, float clear_coat, float clear_coat_roughness);
     bool add_unlit_material(const char* material_name, float3 base_color, float4 emmisive);
-    Entity_ID add_sun_light(float intenstiy_lux, fmath::float3 position);
     bool add_ibl_skybox(futils::Path file_path);
     glTF_Instance_ID add_gltf_asset_and_create_instance(const char* filepath);
     glTF_Instance_ID create_gltf_instance_sibling(glTF_Instance gltf_instance);
-    Entity_ID add_plane(double3 center, double length_x, double length_z, const char* material_name, Quaternion rotation);
+
+    Entity_ID add_filamesh_from_file(futils::Path file_path);
+    Entity_ID add_plane(double length_x, double length_z, const char* material_name);
+    Entity_ID add_cylinder(double radius, double height, const char* material_name);
+    Entity_ID add_arrow(double radius, double length, const char* material_name);
     Entity_ID add_line(double3 begin, double3 end, const char* material_name);
+
+    Entity_ID add_sun_light(float intenstiy_lux, fmath::float3 position);
 
     std::pair<fmt::Camera*, Entity_ID> create_filament_camera();
     fmt::View* create_filament_view();
@@ -74,6 +80,8 @@ public:
 private:
     Environment() {};
     Environment_ID m_id;
+
+    Entity_ID add_and_delete_par_mesh(par_shapes_mesh* par_mesh, const char* material_name);
 
     fmt::Scene* m_scene = nullptr;
     fmt::Engine* m_engine = nullptr;
